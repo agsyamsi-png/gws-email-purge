@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Workspace Email Containment Portal | Devoteam G Cloud</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #f8485e; /* Devoteam Red Poppy */
+      --primary-dark: #d93348;
+      --dark: #3c3c3a; /* Devoteam Dark Grey */
+      --darker: #1F2937;
+      --surface: #ffffff;
+      --bg: #F9FAFB;
+      --border: #E5E7EB;
+      --muted: #6B7280;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --aqua: #d7ebe7;
+      --light-grey: #efeeee;
+      --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--dark);
+      font-size: 13px;
+      line-height: 1.5;
+      padding-bottom: 40px;
+    }
+
+    /* Header Bar */
+    header {
+      background: var(--darker);
+      color: #FFFFFF;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid var(--primary);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-title h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .brand-title span {
+      background: rgba(248, 72, 94, 0.2);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .admin-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #111827;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      border: 1px solid #374151;
+      font-size: 12px;
+    }
+    .admin-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+
+    /* Container */
+    .container {
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--darker);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Form Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dark);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      color: var(--dark);
+      background: #FFFFFF;
+      transition: all 0.15s ease;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(248, 72, 94, 0.15);
+    }
+
+    /* Scope & Action Selector Pills */
+    .selector-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .sel-card {
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+      background: #FFFFFF;
+    }
+    .sel-card:hover {
+      border-color: #CBD5E1;
+    }
+    .sel-card.active {
+      border-color: var(--primary);
+      background: rgba(248, 72, 94, 0.04);
+    }
+    .sel-card-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    .sel-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--darker);
+    }
+    .sel-card-desc {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Query Preview Banner */
+    .query-preview {
+      background: #111827;
+      color: #38BDF8;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      word-break: break-all;
+    }
+    .query-preview-label {
+      font-size: 10px;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      font-family: var(--font-sans);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-lg {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 15px;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      box-shadow: 0 4px 12px rgba(248, 72, 94, 0.25);
+    }
+    .btn-secondary {
+      background: #F3F4F6;
+      color: var(--dark);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: #E5E7EB;
+    }
+    .btn-danger {
+      background: var(--danger);
+      color: #FFFFFF;
+    }
+    .btn-danger:hover {
+      background: #DC2626;
+    }
+
+    /* Live Progress Screen */
+    #progress-section {
+      display: none;
+    }
+    .progress-bar-wrap {
+      background: #E5E7EB;
+      height: 12px;
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .live-log-box {
+      background: #111827;
+      color: #10B981;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 12px;
+      border-radius: 6px;
+      height: 160px;
+      overflow-y: auto;
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+
+    /* Report Section */
+    #report-section {
+      display: none;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--darker);
+    }
+    .kpi-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* Results Table */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th {
+      background: var(--darker);
+      color: #FFFFFF;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--dark);
+    }
+    tr:nth-child(even) td {
+      background: #F9FAFB;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .badge-success { background: #DEF7EC; color: #03543F; }
+    .badge-warning { background: #FEF3C7; color: #92400E; }
+    .badge-danger { background: #FDE8E8; color: #9B1C1C; }
+
+    /* Modal for Settings */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #FFFFFF;
+      border-radius: 10px;
+      width: 540px;
+      max-width: 90%;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-title">
+      <h1>Google Workspace Threat Containment Portal</h1>
+      <span>Devoteam G Cloud</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 11px;" onclick="openSettingsModal()">⚙️ Settings & DWD Key</button>
+      <div class="admin-pill">
+        <div class="admin-dot"></div>
+        <span id="active-user-email">Detecting Admin...</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- STEP 1: CONFIGURE INCIDENT -->
+    <div id="config-section">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">1. Email Threat Indicators</div>
+            <div class="card-subtitle">Specify attributes of the malicious or confidential email to be purged.</div>
+          </div>
+          <div id="incident-id-badge" style="font-family: var(--font-mono); font-size: 11px; background: #F3F4F6; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);">
+            INC-GWS-LOAD
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Sender Email (from:)</label>
+            <input type="text" id="inp-sender" placeholder="e.g. attacker@malicious-domain.com" oninput="updateQueryPreview()">
+          </div>
+          <div class="form-group">
+            <label>Subject Keyword (subject:)</label>
+            <input type="text" id="inp-subject" placeholder="e.g. Urgent Wire Transfer Request" oninput="updateQueryPreview()">
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="form-group">
+            <label>Message-ID (rfc822msgid:)</label>
+            <input type="text" id="inp-msgid" placeholder="e.g. <unique-id@domain.com>" oninput="updateQueryPreview()">
+          </div>
+          <div class="form-group">
+            <label>Sent After Date</label>
+            <input type="date" id="inp-after" onchange="updateQueryPreview()">
+          </div>
+          <div class="form-group">
+            <label>Attachment Name (filename:)</label>
+            <input type="text" id="inp-filename" placeholder="e.g. invoice_march.exe" oninput="updateQueryPreview()">
+          </div>
+        </div>
+
+        <div>
+          <div class="query-preview-label">Live Gmail Search Filter (Auto-Constructed)</div>
+          <div class="query-preview">
+            <span id="txt-query-preview">Fill in threat details above to construct safe query...</span>
+            <span id="query-status-pill" class="badge badge-warning">Awaiting Input</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: SCOPE & TARGETS -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">2. Target Mailbox Scope</div>
+            <div class="card-subtitle">Select which user mailboxes will be searched and remediated.</div>
+          </div>
+        </div>
+
+        <div class="selector-cards">
+          <div class="sel-card active" id="card-scope-targeted" onclick="selectScope('targeted')">
+            <div class="sel-card-icon">🎯</div>
+            <div class="sel-card-title">Targeted Mailbox List</div>
+            <div class="sel-card-desc">Search specific recipients (Recommended)</div>
+          </div>
+          <div class="sel-card" id="card-scope-domain" onclick="selectScope('domain')">
+            <div class="sel-card-icon">🌐</div>
+            <div class="sel-card-title">Domain-Wide</div>
+            <div class="sel-card-desc">Scan all accounts in the Workspace</div>
+          </div>
+          <div class="sel-card" id="card-scope-single" onclick="selectScope('single')">
+            <div class="sel-card-icon">👤</div>
+            <div class="sel-card-title">Single Mailbox</div>
+            <div class="sel-card-desc">Remediate one specific user</div>
+          </div>
+        </div>
+
+        <div id="target-list-box" class="form-group">
+          <label>Target User Emails (Comma-separated or one per line)</label>
+          <textarea id="inp-target-emails" rows="3" placeholder="victim1@yourdomain.com, victim2@yourdomain.com"></textarea>
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
+            💡 Tip: If using the linked Google Sheet, emails from the <code>Target_Mailboxes</code> tab are automatically loaded.
+          </div>
+        </div>
+
+        <div id="single-user-box" class="form-group" style="display: none;">
+          <label>Target User Email Address</label>
+          <input type="text" id="inp-single-user" placeholder="user@yourdomain.com">
+        </div>
+      </div>
+
+      <!-- STEP 3: ACTION & SAFETY -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">3. Purge Action & Containment Mode</div>
+            <div class="card-subtitle">Choose containment method based on incident severity.</div>
+          </div>
+        </div>
+
+        <div class="selector-cards">
+          <div class="sel-card active" id="card-action-dryrun" onclick="selectAction('DRY_RUN')">
+            <div class="sel-card-icon">🔍</div>
+            <div class="sel-card-title">Dry Run (Simulation)</div>
+            <div class="sel-card-desc">Scans & counts matches without altering mailboxes</div>
+          </div>
+          <div class="sel-card" id="card-action-trash" onclick="selectAction('TRASH')">
+            <div class="sel-card-icon">🗑️</div>
+            <div class="sel-card-title">Move to Trash (Soft Purge)</div>
+            <div class="sel-card-desc">Isolates threat with 30-day recovery safety net</div>
+          </div>
+          <div class="sel-card" id="card-action-delete" onclick="selectAction('DELETE')">
+            <div class="sel-card-icon">🚨</div>
+            <div class="sel-card-title">Permanent Delete (Hard Purge)</div>
+            <div class="sel-card-desc">Expunges message completely (Cannot be undone)</div>
+          </div>
+        </div>
+
+        <div id="delete-confirmation-box" style="display: none; background: #FEF2F2; border: 1px solid #F87171; border-radius: 8px; padding: 12px; margin-top: 10px;">
+          <label style="color: #991B1B; font-weight: 700; display: block; margin-bottom: 6px;">
+            ⚠️ Dual-Custody Confirmation Required for Permanent Deletion
+          </label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="chk-hard-delete-confirm" style="width: 18px; height: 18px;">
+            <span style="font-size: 12px; color: #7F1D1D;">I certify that I have verified the query and authorize permanent expungement across target accounts.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXECUTE BUTTON -->
+      <button id="btn-start-purge" class="btn btn-primary btn-lg" onclick="startPurgeProcess()">
+        🚀 Start Purging Process
+      </button>
+    </div>
+
+    <!-- STEP 4: LIVE PROGRESS SCREEN -->
+    <div id="progress-section" class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title" id="progress-status-title">Purge Process Running...</div>
+          <div class="card-subtitle" id="progress-status-sub">Connecting via Domain-Wide Delegation and querying Gmail API</div>
+        </div>
+        <div class="badge badge-warning" id="progress-badge">IN PROGRESS</div>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+
+      <div class="grid-3" style="text-align: center; margin: 12px 0;">
+        <div style="background: #F9FAFB; padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+          <div id="stat-scanned" style="font-size: 18px; font-weight: 700;">0</div>
+          <div style="font-size: 10px; color: var(--muted); text-transform: uppercase;">Mailboxes Checked</div>
+        </div>
+        <div style="background: #F9FAFB; padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+          <div id="stat-matched" style="font-size: 18px; font-weight: 700; color: var(--primary);">0</div>
+          <div style="font-size: 10px; color: var(--muted); text-transform: uppercase;">Threat Emails Found</div>
+        </div>
+        <div style="background: #F9FAFB; padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+          <div id="stat-purged" style="font-size: 18px; font-weight: 700; color: var(--success);">0</div>
+          <div style="font-size: 10px; color: var(--muted); text-transform: uppercase;">Emails Neutralized</div>
+        </div>
+      </div>
+
+      <div class="live-log-box" id="live-logs">
+        [SYSTEM] Initializing Google Workspace containment task...
+      </div>
+    </div>
+
+    <!-- STEP 5: INCIDENT REPORT SCREEN -->
+    <div id="report-section">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🎉 Incident Containment Report</div>
+            <div class="card-subtitle" id="report-incident-subtitle">Operation complete. Summary metrics and audit trail below.</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="exportCsvReport()">📥 Export CSV</button>
+            <button class="btn btn-primary" onclick="resetFormForNewIncident()">🔄 New Incident</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-scanned">0</div>
+            <div class="kpi-label">Mailboxes Scanned</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-found" style="color: var(--primary);">0</div>
+            <div class="kpi-label">Threats Detected</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-purged" style="color: var(--success);">0</div>
+            <div class="kpi-label">Successfully Remediated</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-errors" style="color: var(--muted);">0</div>
+            <div class="kpi-label">Failures / Errors</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Target Mailbox</th>
+                <th>Subject Line</th>
+                <th>Message ID</th>
+                <th>Date / Time</th>
+                <th>Remediation Status</th>
+              </tr>
+            </thead>
+            <tbody id="report-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Settings Modal (Service Account JSON Key) -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-content">
+      <div class="card-header">
+        <div class="card-title">⚙️ Service Account & DWD Setup</div>
+        <button onclick="closeSettingsModal()" style="background: none; border: none; font-size: 18px; cursor: pointer;">✕</button>
+      </div>
+      <p style="font-size: 11px; color: var(--muted); margin-bottom: 12px;">
+        To execute direct web-based purges, paste your Google Cloud Service Account JSON Key below. It is stored securely in encrypted Script Properties.
+      </p>
+      <div class="form-group">
+        <label>Service Account JSON Key</label>
+        <textarea id="inp-sa-json" rows="6" placeholder='{"type": "service_account", "client_email": "...", "private_key": "..."}' style="font-family: var(--font-mono); font-size: 11px;"></textarea>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveServiceAccountKey()">Save Key & Enable Web Purge</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentScope = 'targeted';
+    let currentAction = 'DRY_RUN';
+    let incidentId = 'INC-' + Math.floor(Date.now() / 1000);
+    let lastReportData = null;
+
+    window.onload = function() {
+      document.getElementById('incident-id-badge').textContent = incidentId;
+      // Load current user and config
+      google.script.run
+        .withSuccessHandler(onConfigLoaded)
+        .withFailureHandler(function(err) {
+          document.getElementById('active-user-email').textContent = 'Admin Mode';
+        })
+        .getPortalConfig();
+    };
+
+    function onConfigLoaded(cfg) {
+      if (cfg.userEmail) {
+        document.getElementById('active-user-email').textContent = cfg.userEmail;
+      }
+      if (cfg.incidentId) {
+        incidentId = cfg.incidentId;
+        document.getElementById('incident-id-badge').textContent = incidentId;
+      }
+      if (cfg.targetList) {
+        document.getElementById('inp-target-emails').value = cfg.targetList.join('\n');
+      }
+      if (cfg.existingQuery) {
+        document.getElementById('txt-query-preview').textContent = cfg.existingQuery;
+        document.getElementById('query-status-pill').textContent = 'Loaded from Sheet';
+        document.getElementById('query-status-pill').className = 'badge badge-success';
+      }
+    }
+
+    function selectScope(scope) {
+      currentScope = scope;
+      document.querySelectorAll('#card-scope-targeted, #card-scope-domain, #card-scope-single')
+        .forEach(el => el.classList.remove('active'));
+      document.getElementById('card-scope-' + scope).classList.add('active');
+
+      document.getElementById('target-list-box').style.display = (scope === 'targeted') ? 'block' : 'none';
+      document.getElementById('single-user-box').style.display = (scope === 'single') ? 'block' : 'none';
+    }
+
+    function selectAction(action) {
+      currentAction = action;
+      document.querySelectorAll('#card-action-dryrun, #card-action-trash, #card-action-delete')
+        .forEach(el => el.classList.remove('active'));
+      document.getElementById('card-action-' + action.toLowerCase().replace('_', '')).classList.add('active');
+
+      document.getElementById('delete-confirmation-box').style.display = (action === 'DELETE') ? 'block' : 'none';
+
+      const btn = document.getElementById('btn-start-purge');
+      if (action === 'DRY_RUN') {
+        btn.textContent = '🔍 Run Dry Run Simulation';
+        btn.className = 'btn btn-primary btn-lg';
+      } else if (action === 'TRASH') {
+        btn.textContent = '🗑️ Execute Move to Trash (Soft Purge)';
+        btn.className = 'btn btn-primary btn-lg';
+      } else {
+        btn.textContent = '🚨 Execute Permanent Purge (Hard Delete)';
+        btn.className = 'btn btn-danger btn-lg';
+      }
+    }
+
+    function updateQueryPreview() {
+      const sender = document.getElementById('inp-sender').value.trim();
+      const subject = document.getElementById('inp-subject').value.trim();
+      const msgid = document.getElementById('inp-msgid').value.trim();
+      const after = document.getElementById('inp-after').value;
+      const filename = document.getElementById('inp-filename').value.trim();
+
+      const tokens = [];
+      if (msgid) tokens.push(`rfc822msgid:${msgid}`);
+      if (sender) tokens.push(`from:${sender}`);
+      if (subject) tokens.push(`subject:"${subject}"`);
+      if (after) tokens.push(`after:${after.replace(/-/g, '/')}`);
+      if (filename) tokens.push(`filename:${filename}`);
+
+      const previewBox = document.getElementById('txt-query-preview');
+      const pill = document.getElementById('query-status-pill');
+
+      if (tokens.length === 0) {
+        previewBox.textContent = 'Fill in threat details above to construct safe query...';
+        pill.textContent = 'Awaiting Input';
+        pill.className = 'badge badge-warning';
+        return '';
+      }
+
+      const query = tokens.join(' ');
+      previewBox.textContent = query;
+      pill.textContent = 'Safe Query Validated';
+      pill.className = 'badge badge-success';
+      return query;
+    }
+
+    function startPurgeProcess() {
+      let query = updateQueryPreview();
+      if (!query) {
+        // Fallback to text preview if manually set
+        query = document.getElementById('txt-query-preview').textContent;
+      }
+
+      if (!query || query.includes('Fill in threat details')) {
+        alert('Please enter at least one threat detail (Sender, Subject, or Message-ID) before purging.');
+        return;
+      }
+
+      if (currentAction === 'DELETE') {
+        const confirmed = document.getElementById('chk-hard-delete-confirm').checked;
+        if (!confirmed) {
+          alert('You must check the confirmation box to authorize permanent deletion.');
+          return;
+        }
+      }
+
+      // Gather target list
+      let targets = [];
+      if (currentScope === 'targeted') {
+        const raw = document.getElementById('inp-target-emails').value;
+        targets = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+        if (targets.length === 0) {
+          alert('Please enter at least one target user email in the targeted list.');
+          return;
+        }
+      } else if (currentScope === 'single') {
+        const single = document.getElementById('inp-single-user').value.trim();
+        if (!single) {
+          alert('Please enter a target email address.');
+          return;
+        }
+        targets = [single];
+      }
+
+      // Switch to progress view
+      document.getElementById('config-section').style.display = 'none';
+      document.getElementById('report-section').style.display = 'none';
+      document.getElementById('progress-section').style.display = 'block';
+
+      const logBox = document.getElementById('live-logs');
+      logBox.innerHTML = `[${new Date().toLocaleTimeString()}] Starting containment task ${incidentId}...<br>` +
+        `[${new Date().toLocaleTimeString()}] Query: ${query}<br>` +
+        `[${new Date().toLocaleTimeString()}] Mode: ${currentAction} | Target count: ${targets.length || 'Domain-Wide'}<br>`;
+
+      // Animate progress bar
+      let p = 10;
+      const bar = document.getElementById('progress-bar');
+      bar.style.width = p + '%';
+
+      const interval = setInterval(function() {
+        if (p < 85) {
+          p += 5;
+          bar.style.width = p + '%';
+        }
+      }, 500);
+
+      // Call backend
+      const payload = {
+        incidentId: incidentId,
+        query: query,
+        scope: currentScope,
+        targets: targets,
+        action: currentAction
+      };
+
+      google.script.run
+        .withSuccessHandler(function(report) {
+          clearInterval(interval);
+          bar.style.width = '100%';
+          onPurgeComplete(report);
+        })
+        .withFailureHandler(function(err) {
+          clearInterval(interval);
+          bar.style.width = '100%';
+          logBox.innerHTML += `<br><span style="color:#EF4444;">[ERROR] ${err.message || err}</span>`;
+          document.getElementById('progress-badge').textContent = 'FAILED';
+          document.getElementById('progress-badge').className = 'badge badge-danger';
+        })
+        .executeWebPurge(payload);
+    }
+
+    function onPurgeComplete(report) {
+      lastReportData = report;
+
+      document.getElementById('progress-section').style.display = 'none';
+      document.getElementById('report-section').style.display = 'block';
+
+      document.getElementById('kpi-scanned').textContent = report.scannedCount || 0;
+      document.getElementById('kpi-found').textContent = report.matchedCount || 0;
+      document.getElementById('kpi-purged').textContent = report.purgedCount || 0;
+      document.getElementById('kpi-errors').textContent = report.failedCount || 0;
+
+      const tbody = document.getElementById('report-table-body');
+      tbody.innerHTML = '';
+
+      if (!report.results || report.results.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--muted); padding: 24px;">No threat messages matched the criteria across scanned mailboxes.</td></tr>`;
+        return;
+      }
+
+      report.results.forEach(function(row) {
+        const tr = document.createElement('tr');
+        const badgeClass = row.status.includes('TRASH') || row.status.includes('EXPUNGED') ? 'badge-success' : 'badge-warning';
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(row.email)}</strong></td>
+          <td>${escapeHtml(row.subject || 'N/A')}</td>
+          <td><code style="font-size:10px;">${escapeHtml(row.messageId || '')}</code></td>
+          <td>${escapeHtml(row.date || 'Recent')}</td>
+          <td><span class="badge ${badgeClass}">${escapeHtml(row.status)}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function resetFormForNewIncident() {
+      incidentId = 'INC-' + Math.floor(Date.now() / 1000);
+      document.getElementById('incident-id-badge').textContent = incidentId;
+      document.getElementById('report-section').style.display = 'none';
+      document.getElementById('config-section').style.display = 'block';
+      document.getElementById('progress-bar').style.width = '0%';
+    }
+
+    function exportCsvReport() {
+      if (!lastReportData || !lastReportData.results) {
+        alert('No report data available to export.');
+        return;
+      }
+      let csv = 'Target Mailbox,Subject,Message ID,Date,Status\n';
+      lastReportData.results.forEach(r => {
+        csv += `"${r.email}","${(r.subject||'').replace(/"/g, '""')}","${r.messageId}","${r.date}","${r.status}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${incidentId}-containment-report.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settings-modal').style.display = 'flex';
+    }
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').style.display = 'none';
+    }
+
+    function saveServiceAccountKey() {
+      const key = document.getElementById('inp-sa-json').value.trim();
+      if (!key) {
+        alert('Please paste the Service Account JSON key.');
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function(resp) {
+          alert('Service Account Key successfully saved! Direct web-based purging is now enabled.');
+          closeSettingsModal();
+        })
+        .withFailureHandler(function(err) {
+          alert('Error saving key: ' + err.message);
+        })
+        .saveServiceAccountKey(key);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
