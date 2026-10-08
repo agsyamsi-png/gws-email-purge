@@ -1,146 +1,91 @@
-# Google Workspace Email Purge Controller (GAM + Google Sheets UI)
+# Google Workspace Email Purge Controller & Web Portal
 
 **Devoteam G Cloud — Enterprise Google Workspace Security Standards**
 
-This solution provides an enterprise-ready, white-label Google Sheet control plane combined with GAM / GAMADV-XTD3 automation to rapidly identify, audit, and purge malicious emails (e.g., phishing outbreaks, accidental data spills) across Google Workspace tenants.
+This solution provides both an intuitive **1-Click Web Containment Portal** and a **Google Sheet + GAM CLI Control Plane** to rapidly identify, audit, and purge malicious emails across Google Workspace tenants.
 
 ---
 
 ## 1. Architectural Overview
 
 ```
-┌────────────────────────────────────────────────────────┐
-│               1. Google Sheet Control Plane            │
-│  - Purge_Control_Center (Query, Scope, Mode, Approvals)│
-│  - Target_Mailboxes     (List of victim email inboxes) │
-│  - Audit_Log            (Tamper-evident incident log)  │
-└───────────────────────────┬────────────────────────────┘
-                            │
-               [Interactive Apps Script UI]
-                            │
-            ┌───────────────┴───────────────┐
-            ▼                               ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│ Option A: Direct Live   │     │ Option B: CLI Runner    │
-│ GAMADV-XTD3 Connector   │     │ gam-purge-runner.sh     │
-│ Reads live Google Sheet │     │ Dry-run -> Confirmation │
-│ via Sheets API          │     │ -> Purge Execution      │
-└───────────┬─────────────┘     └───────────┬─────────────┘
-            │                               │
-            └───────────────┬───────────────┘
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│        Google Workspace Gmail & Directory APIs         │
-│     (Domain-Wide Delegation Service Account via GAM)   │
-└────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        ADMIN INTERACTION LAYER                         │
+│                                                                        │
+│   Option 1: 1-Click Web Portal         Option 2: Google Sheet UI       │
+│   (Standalone Web App / Modal)         (Purge_Control_Center + Tabs)   │
+└──────────────────┬─────────────────────────────────┬───────────────────┘
+                   │                                 │
+                   ▼                                 ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                   EXECUTION & CONTAINMENT ENGINE                       │
+│                                                                        │
+│   Direct Gmail REST API Client         GAM / GAMADV-XTD3 Runner        │
+│   (OAuth2 JWT DWD via Apps Script)     (CLI Terminal Automation)       │
+└──────────────────┬─────────────────────────────────┬───────────────────┘
+                   │                                 │
+                   └────────────────┬────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│              Google Workspace Tenant Gmail Infrastructure              │
+│       - Searches user mailboxes via impersonation (sub claim)          │
+│       - Soft Purge (trash) / Hard Purge (delete)                       │
+│       - Preserved in Google Vault if active legal holds exist          │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Quick Setup Guide
+## 2. Fast Setup (1-Click Web Portal)
 
-### Step 1: Prepare the Google Sheet
-1. Open a new Google Sheet: [sheets.new](https://sheets.new).
-2. Name the spreadsheet: `[SecOps] Workspace Email Purge Control Center`.
+### Step 1: Open Google Sheets & Apps Script
+1. Open or create your Google Sheet.
+2. In the top menu, go to **Extensions** > **Apps Script**.
 
-### Step 2: Install Apps Script Controller
-1. In the menu bar, navigate to **Extensions** > **Apps Script**.
-2. Replace the default `Code.gs` with the contents of [`Code.gs`](./Code.gs).
-3. Click **+** (Add a file) > **HTML**, name it `Sidebar`, and paste the contents of [`Sidebar.html`](./Sidebar.html).
+### Step 2: Add Script & HTML Files
+1. Paste [`Code.gs`](./Code.gs) into the default `Code.gs` file.
+2. Click **+** (Add a file) > **HTML**, name it `Dashboard`, and paste the contents of [`Dashboard.html`](./Dashboard.html).
+3. (Optional) Click **+** > **HTML**, name it `Sidebar`, and paste the contents of [`Sidebar.html`](./Sidebar.html).
 4. Save the project (`Cmd+S` or `Ctrl+S`).
 
-### Step 3: Initialize the Sheet Interface
-1. Return to the Google Sheet tab and refresh the browser.
-2. A new custom menu **`⚡ GAM Email Purge`** will appear in the top toolbar.
-3. Click **`⚡ GAM Email Purge`** > **`⚙️ Initialize / Format Sheet Tabs`**.
-4. Grant the initial Google authorization permissions when prompted.
-5. The script automatically sets up three formatted tabs:
-   - **`Purge_Control_Center`**: The master command dashboard.
-   - **`Target_Mailboxes`**: The recipient list for targeted purges.
-   - **`Audit_Log`**: Immutable record of all purge requests and cryptographic command hashes.
+### Step 3: Run the Web Portal
+* **Within Google Sheets:** Return to your sheet, refresh the browser, and click **`⚡ GAM Email Purge`** > **`🚀 Open Purge Web Portal (Full Dashboard)`**.
+* **As a Dedicated Web App:** In Apps Script, click **Deploy** > **New deployment** > **Web app**. Choose `Execute as: User accessing the web app` and `Who has access: Anyone within your domain`.
 
 ---
 
-## 3. How to Execute an Email Purge
+## 3. Incident Containment Procedure
 
-### Phase 1: Configure & Validate the Query
-1. Open the interactive UI: **`⚡ GAM Email Purge`** > **`📱 Open Purge Dashboard (Sidebar)`**.
-2. Enter your **Incident Reference ID** (e.g., `INC-2026-10-092`).
-3. Enter the **Gmail RFC 822 Search Query**:
-   - By Message-ID: `rfc822msgid:<unique-id@attacker.com>`
-   - By Sender & Subject: `from:phishing@evil.com subject:"Urgent Invoice"`
-   - With Date Guardrail: `from:spammer@evil.com after:2026/10/01`
-4. Choose the **Target Scope**:
-   - `Specific Mailbox List (Tab: Target_Mailboxes)`: For targeted containment (paste victim emails into the `Target_Mailboxes` tab).
-   - `All Users (Domain-Wide)`: For domain-wide phishing campaigns.
-   - `Single Mailbox`, `Organizational Unit (OU)`, or `Google Group`.
-
-### Phase 2: Mandatory Dry-Run Simulation
-Always select **`DRY_RUN (Count & List Only)`** first.
-- The UI generates the dry-run command:
-  ```bash
-  # For targeted mailboxes in Google Sheet:
-  gam csv gsheet "<SPREADSHEET_ID>" "Target_Mailboxes" gam user ~Email print messages query "..."
-  
-  # For all domain users:
-  gam all users print messages query "..."
-  ```
-- Review the count of matching messages to verify zero false positives.
-
-### Phase 3: Containment Execution
-
-#### Option 1: Soft Purge (Recommended)
-Set **Purge Action** to `TRASH (Soft Purge - 30 Day Recovery Window)`.
-- Moves matching messages directly to the users' Trash folder.
-- Users cannot see or open the malicious message in their Inbox.
-- Admins can easily restore emails within 30 days if a false positive occurs.
-- GAM syntax:
-  ```bash
-  gam all users trash messages query "..." doit
-  ```
-
-#### Option 2: Hard Purge (Permanent Expunge)
-Set **Purge Action** to `DELETE (Hard Purge - Permanent Expunge)` and toggle **Safety Confirmation** to `YES`.
-- Permanently deletes the message bypassing Trash.
-- *Note:* If Google Vault retention holds exist, messages remain retained in Vault for compliance and legal discovery.
-- GAM syntax:
-  ```bash
-  gam all users delete messages query "..." doit
-  ```
+1. **Input Threat Details:** Fill in the Sender (`from:`), Subject keyword (`subject:`), Message-ID (`rfc822msgid:`), or Date sent (`after:`). The query builder automatically ensures syntax safety.
+2. **Select Target Scope:**
+   - **Targeted Mailbox List:** Paste victim email addresses or load from the `Target_Mailboxes` sheet tab.
+   - **Domain-Wide:** Scans all accounts across the tenant.
+   - **Single User:** Remediates a specific account.
+3. **Execute Mode:**
+   - 🔍 **Dry Run Simulation:** Counts matching messages across inboxes with zero alterations.
+   - 🗑️ **Move to Trash (Recommended):** Moves messages to user Trash with a 30-day recovery window.
+   - 🚨 **Permanent Delete:** Hard expunge requiring an explicit confirmation checkbox.
+4. **View Incident Report:**
+   - Review live KPIs (Mailboxes Scanned, Threats Found, Purged Count).
+   - Inspect the itemized mailbox results table.
+   - Click **📥 Export CSV** to download the containment report.
 
 ---
 
-## 4. Using the Shell Runner Script (`gam-purge-runner.sh`)
+## 4. Enabling Direct In-Browser Purging (Service Account Setup)
 
-For automated, protected execution from your macOS/Linux workstation or Google Cloud Shell:
+To execute purges directly inside the browser without opening a terminal:
+1. Open the Web Portal and click **⚙️ Settings & DWD Key**.
+2. Paste your Google Cloud Service Account JSON Key (authorized for Domain-Wide Delegation with `https://mail.google.com/`).
+3. Click **Save Key**. The key is stored securely in encrypted Google `ScriptProperties`.
+4. Web-based 1-click purges are now fully operational.
 
+---
+
+## 5. Emergency Rollback / Recovery Runbook
+
+If emails were moved to Trash by mistake during a Soft Purge (`TRASH`), they can be restored within 30 days:
 ```bash
-# 1. Dry-run audit scan against a live Google Sheet:
-./gam-purge-runner.sh \
-  --query 'from:attacker@evil.com subject:"Overdue Payment"' \
-  --scope sheet \
-  --sheet-id "YOUR_SPREADSHEET_ID" \
-  --mode dry-run
-
-# 2. Execute soft purge (Trash) with blast-radius confirmation prompt:
-./gam-purge-runner.sh \
-  --query 'rfc822msgid:<1234567@evil.com>' \
-  --scope all \
-  --mode trash
-
-# 3. Permanent delete across a specific CSV list:
-./gam-purge-runner.sh \
-  --query 'from:badactor@domain.com' \
-  --scope csv \
-  --csv target_mailboxes.csv \
-  --mode delete
+# Restore for all targeted mailboxes in Google Sheet:
+gam csv gsheet "<SPREADSHEET_ID>" "Target_Mailboxes" gam user ~Email untrash messages query "<QUERY>" doit
 ```
-
----
-
-## 5. Security & Operational Guardrails
-
-1. **Pre-flight Safety Filter:** Empty queries or wildcards (`*`, `""`, `is:unread`, `label:inbox`) are strictly blocked by both Apps Script and the bash runner to prevent catastrophic domain-wide deletions.
-2. **Dual-Custody Sign-off:** The sheet enforces a verified approval state and explicit confirmation checkbox before enabling hard DELETE command generation.
-3. **Audit Trail Integrity:** Every command generated registers an immutable entry into the `Audit_Log` tab with UTC timestamp, operator identity, scope, query, and SHA-256 hash.
-4. **Google Vault Compliance:** GAM message deletion does not destroy messages under active Google Vault litigation holds.
