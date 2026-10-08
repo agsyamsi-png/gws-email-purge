@@ -481,7 +481,7 @@
 
         <div id="target-list-box" class="form-group">
           <label>Target User Emails (Comma-separated or one per line)</label>
-          <textarea id="inp-target-emails" rows="3" placeholder="victim1@yourdomain.com, victim2@yourdomain.com"></textarea>
+          <textarea id="inp-target-emails" rows="3" placeholder="user1@company.com, user2@company.com"></textarea>
           <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
             💡 Tip: If using the linked Google Sheet, emails from the <code>Target_Mailboxes</code> tab are automatically loaded.
           </div>
@@ -489,7 +489,7 @@
 
         <div id="single-user-box" class="form-group" style="display: none;">
           <label>Target User Email Address</label>
-          <input type="text" id="inp-single-user" placeholder="user@yourdomain.com">
+          <input type="text" id="inp-single-user" placeholder="target.user@company.com">
         </div>
       </div>
 
@@ -671,8 +671,23 @@
         incidentId = cfg.incidentId;
         document.getElementById('incident-id-badge').textContent = incidentId;
       }
-      if (cfg.targetList) {
+      if (cfg.existingScope) {
+        const sc = cfg.existingScope.toLowerCase();
+        if (sc.includes('single')) {
+          selectScope('single');
+          if (cfg.existingTargetIdentifier) {
+            document.getElementById('inp-single-user').value = cfg.existingTargetIdentifier;
+          }
+        } else if (sc.includes('domain')) {
+          selectScope('domain');
+        } else {
+          selectScope('targeted');
+        }
+      }
+      if (cfg.targetList && cfg.targetList.length > 0) {
         document.getElementById('inp-target-emails').value = cfg.targetList.join('\n');
+      } else {
+        document.getElementById('inp-target-emails').value = '';
       }
       if (cfg.existingQuery) {
         document.getElementById('txt-query-preview').textContent = cfg.existingQuery;
@@ -765,20 +780,22 @@
 
       // Gather target list
       let targets = [];
+      let targetIdentifier = '';
       if (currentScope === 'targeted') {
         const raw = document.getElementById('inp-target-emails').value;
-        targets = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+        targets = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && !s.includes('@yourdomain.com') && !s.includes('@example.com') && !s.startsWith('victim.'));
         if (targets.length === 0) {
-          alert('Please enter at least one target user email in the targeted list.');
+          alert('Please enter at least one valid target user email in the targeted list.');
           return;
         }
       } else if (currentScope === 'single') {
         const single = document.getElementById('inp-single-user').value.trim();
-        if (!single) {
-          alert('Please enter a target email address.');
+        if (!single || !single.includes('@')) {
+          alert('Please enter a valid target email address.');
           return;
         }
         targets = [single];
+        targetIdentifier = single;
       }
 
       // Switch to progress view
@@ -789,7 +806,7 @@
       const logBox = document.getElementById('live-logs');
       logBox.innerHTML = `[${new Date().toLocaleTimeString()}] Starting containment task ${incidentId}...<br>` +
         `[${new Date().toLocaleTimeString()}] Query: ${query}<br>` +
-        `[${new Date().toLocaleTimeString()}] Mode: ${currentAction} | Target count: ${targets.length || 'Domain-Wide'}<br>`;
+        `[${new Date().toLocaleTimeString()}] Mode: ${currentAction} | Target count: ${targets.length || 'Domain-Wide'} (${targetIdentifier || 'Multiple'})<br>`;
 
       // Animate progress bar
       let p = 10;
@@ -808,6 +825,7 @@
         incidentId: incidentId,
         query: query,
         scope: currentScope,
+        targetIdentifier: targetIdentifier,
         targets: targets,
         action: currentAction
       };

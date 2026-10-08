@@ -214,18 +214,58 @@ function setupTargetMailboxesSheet(sheet) {
     .setFontSize(10);
   sheet.setRowHeight(1, 32);
 
-  const sampleData = [
-    ['victim.user1@yourdomain.com', 'Finance / AP', 'PENDING_SCAN', '', 'Reported receiving phishing email'],
-    ['victim.user2@yourdomain.com', 'Human Resources', 'PENDING_SCAN', '', 'Opened suspicious link'],
-  ];
-  sheet.getRange(2, 1, sampleData.length, headers.length).setValues(sampleData);
-
   sheet.setColumnWidth(1, 260);
   sheet.setColumnWidth(2, 200);
   sheet.setColumnWidth(3, 160);
   sheet.setColumnWidth(4, 220);
   sheet.setColumnWidth(5, 260);
   sheet.setFrozenRows(1);
+}
+
+/**
+ * Synchronizes the Target_Mailboxes tab with active targets, clearing any old dummy records.
+ */
+function syncTargetMailboxes(scope, targetIdentifier, targetsList) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) return;
+  const targetSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TARGETS);
+  if (!targetSheet) return;
+
+  const cleanScope = String(scope || '').toLowerCase();
+  const rowsToInsert = [];
+
+  if (cleanScope.includes('single')) {
+    const email = String(targetIdentifier || '').trim();
+    if (email && email.includes('@')) {
+      rowsToInsert.push([email, 'Single Target Mailbox', 'READY_FOR_PURGE', '', 'Target mailbox active']);
+    }
+  } else if (cleanScope.includes('targeted') || cleanScope.includes('specific')) {
+    if (targetsList && targetsList.length > 0) {
+      for (let i = 0; i < targetsList.length; i++) {
+        const email = String(targetsList[i]).trim();
+        if (email && email.includes('@') && !email.includes('@yourdomain.com') && !email.includes('@example.com') && !email.startsWith('victim.')) {
+          rowsToInsert.push([email, 'Target Recipient', 'READY_FOR_PURGE', '', 'Target list']);
+        }
+      }
+    }
+  } else if (cleanScope.includes('domain')) {
+    rowsToInsert.push(['* ALL USERS (Domain-Wide)', 'Whole Tenant', 'READY_FOR_PURGE', '', 'All active Google Workspace inboxes']);
+  } else if (cleanScope.includes('organizational unit') || cleanScope.includes('ou')) {
+    rowsToInsert.push(['OU: ' + (targetIdentifier || '/'), 'Organizational Unit', 'READY_FOR_PURGE', '', 'All users in OU']);
+  } else if (cleanScope.includes('group')) {
+    rowsToInsert.push(['GROUP: ' + (targetIdentifier || ''), 'Google Group', 'READY_FOR_PURGE', '', 'All members of group']);
+  }
+
+  // Clear existing rows (preserve header row 1)
+  const lastRow = targetSheet.getLastRow();
+  if (lastRow > 1) {
+    targetSheet.getRange(2, 1, lastRow - 1, 5).clearContent();
+  }
+
+  // Write new rows if available
+  if (rowsToInsert.length > 0) {
+    targetSheet.getRange(2, 1, rowsToInsert.length, 5).setValues(rowsToInsert);
+  }
 }
 
 /**
@@ -343,7 +383,9 @@ function getPortalConfig() {
         const rows = targetSheet.getDataRange().getValues();
         for (let i = 1; i < rows.length; i++) {
           const email = String(rows[i][0]).trim();
-          if (email && email.includes('@')) targetList.push(email);
+          if (email && email.includes('@') && !email.includes('@yourdomain.com') && !email.includes('@example.com') && !email.startsWith('victim.')) {
+            targetList.push(email);
+          }
         }
       }
     }
@@ -355,6 +397,8 @@ function getPortalConfig() {
     userEmail: userEmail,
     incidentId: params.incidentId,
     existingQuery: params.query,
+    existingScope: params.scope,
+    existingTargetIdentifier: params.targetIdentifier,
     targetList: targetList,
     isServiceAccountConfigured: Boolean(PropertiesService.getScriptProperties().getProperty('SA_KEY'))
   };
@@ -434,7 +478,8 @@ function getDwdAccessToken(serviceAccountEmail, privateKey, userToImpersonate) {
 function executeWebPurge(payload) {
   const query = payload.query;
   const action = payload.action || 'DRY_RUN';
-  const scope = payload.scope || 'targeted';
+  const scope = String(payload.scope || 'targeted').toLowerCase();
+  let targetIdentifier = String(payload.targetIdentifier || '').trim();
   let targets = payload.targets || [];
   const incidentId = payload.incidentId || ('INC-' + Math.floor(Date.now() / 1000));
   const operator = Session.getActiveUser().getEmail() || 'admin@domain.com';
@@ -444,8 +489,16 @@ function executeWebPurge(payload) {
     throw new Error('Query Validation Blocked: ' + safety.error);
   }
 
-  // Load targets from sheet if empty
-  if (targets.length === 0) {
+  // 1. Strictly resolve targets based on scope
+  if (scope.includes('single')) {
+    const single = targetIdentifier || (targets.length > 0 ? targets[0] : '');
+    targets = (single && single.includes('@')) ? [single] : [];
+    if (targets.length === 0) {
+      throw new Error('Single Mailbox scope requires a valid target email address.');
+    }
+    targetIdentifier = targets[0];
+  } else if (targets.length === 0 && !scope.includes('domain')) {
+    // Read from sheet, strictly filtering out dummy placeholders
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       if (ss) {
@@ -454,12 +507,17 @@ function executeWebPurge(payload) {
           const data = targetSheet.getDataRange().getValues();
           for (let i = 1; i < data.length; i++) {
             const email = String(data[i][0]).trim();
-            if (email && email.includes('@')) targets.push(email);
+            if (email && email.includes('@') && !email.includes('@yourdomain.com') && !email.includes('@example.com') && !email.startsWith('victim.')) {
+              targets.push(email);
+            }
           }
         }
       }
     } catch (e) {}
   }
+
+  // Synchronize Target_Mailboxes tab with real targets before execution
+  syncTargetMailboxes(scope, targetIdentifier, targets);
 
   // Check Service Account credentials
   const saKeyJson = PropertiesService.getScriptProperties().getProperty('SA_KEY');
@@ -475,6 +533,10 @@ function executeWebPurge(payload) {
   const results = [];
 
   if (saCreds && saCreds.client_email && saCreds.private_key) {
+    if (scope.includes('domain') && targets.length === 0) {
+      throw new Error('Direct Domain-Wide Gmail API execution requires a target mailbox list or multi-threaded GAM CLI (to prevent Google Apps Script 6-minute execution limits). Please specify a target list or run the generated GAM CLI command.');
+    }
+
     // REAL DWD EXECUTION AGAINST GMAIL API
     for (let i = 0; i < targets.length; i++) {
       const targetEmail = targets[i];
@@ -564,20 +626,66 @@ function executeWebPurge(payload) {
     }
   } else {
     // PRE-AUTHENTICATED SIMULATION (DWD key pending in Script Properties)
-    scannedCount = targets.length || 1;
-    matchedCount = scannedCount;
-    purgedCount = (action === 'DRY_RUN') ? 0 : matchedCount;
-
-    for (let i = 0; i < targets.length; i++) {
+    if (targets.length === 0 && scope.includes('domain')) {
+      scannedCount = 1;
+      matchedCount = 1;
+      purgedCount = (action === 'DRY_RUN') ? 0 : 1;
       results.push({
-        email: targets[i],
-        messageId: 'sim-' + Utilities.getUuid().slice(0, 8),
-        subject: 'Target Mailbox Identified',
+        email: '* ALL USERS (Domain-Wide)',
+        messageId: 'sim-domain-all',
+        subject: 'Tenant Scope Identified',
         date: new Date().toISOString().slice(0, 10),
-        status: (action === 'DRY_RUN') ? 'DRY_RUN_MATCH' : (action + ' (GAM Command Ready)')
+        status: (action === 'DRY_RUN') ? 'DRY_RUN_DOMAIN_MATCH' : (action + ' (GAM Ready)')
       });
+    } else {
+      scannedCount = targets.length;
+      matchedCount = scannedCount;
+      purgedCount = (action === 'DRY_RUN') ? 0 : matchedCount;
+
+      for (let i = 0; i < targets.length; i++) {
+        results.push({
+          email: targets[i],
+          messageId: 'sim-' + Utilities.getUuid().slice(0, 8),
+          subject: 'Target Mailbox Identified',
+          date: new Date().toISOString().slice(0, 10),
+          status: (action === 'DRY_RUN') ? 'DRY_RUN_MATCH' : (action + ' (GAM Ready)')
+        });
+      }
     }
   }
+
+  // Update Target_Mailboxes tab with scan/purge outcomes
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) {
+      const targetSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.TARGETS);
+      if (targetSheet) {
+        const lastRow = targetSheet.getLastRow();
+        if (lastRow > 1) {
+          targetSheet.getRange(2, 1, lastRow - 1, 5).clearContent();
+        }
+        if (results.length > 0) {
+          const reportRows = results.map(r => [
+            r.email,
+            'Scanned Target',
+            r.status,
+            r.messageId,
+            (r.subject || 'Threat Match') + ' (' + (r.date || 'Recent') + ')'
+          ]);
+          targetSheet.getRange(2, 1, reportRows.length, 5).setValues(reportRows);
+        } else if (targets.length > 0) {
+          const reportRows = targets.map(t => [
+            t,
+            'Scanned Target',
+            'NO_MATCH',
+            '-',
+            'No matching threat messages found'
+          ]);
+          targetSheet.getRange(2, 1, reportRows.length, 5).setValues(reportRows);
+        }
+      }
+    }
+  } catch (e) {}
 
   // Audit Logging
   try {
@@ -629,10 +737,14 @@ function buildGamCommand(params) {
 
   if (params.scope.includes('Target_Mailboxes')) {
     return `gam csv gsheet "${params.spreadsheetId}" "${CONFIG.SHEET_NAMES.TARGETS}" gam user ~Email ${gamAction} query "${escapedQuery}"${doitFlag}`;
-  } else if (params.scope.includes('Domain-Wide')) {
+  } else if (params.scope.includes('Domain-Wide') || params.scope.includes('domain')) {
     return `gam all users ${gamAction} query "${escapedQuery}"${doitFlag}`;
-  } else if (params.scope.includes('Single Mailbox')) {
+  } else if (params.scope.includes('Single Mailbox') || params.scope.includes('single')) {
     return `gam user ${params.targetIdentifier || 'user@domain.com'} ${gamAction} query "${escapedQuery}"${doitFlag}`;
+  } else if (params.scope.includes('Organizational Unit') || params.scope.includes('OU') || params.scope.includes('ou')) {
+    return `gam ou "${params.targetIdentifier || '/'}" ${gamAction} query "${escapedQuery}"${doitFlag}`;
+  } else if (params.scope.includes('Group') || params.scope.includes('group')) {
+    return `gam group "${params.targetIdentifier || 'group@domain.com'}" ${gamAction} query "${escapedQuery}"${doitFlag}`;
   }
   return `gam all users ${gamAction} query "${escapedQuery}"${doitFlag}`;
 }
@@ -656,15 +768,19 @@ function validateActiveQuery() {
 /**
  * Generates GAM command in sheet.
  */
-function generateAndDisplayCommand() {
+function generateAndDisplayCommand(suppressAlert) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ui = SpreadsheetApp.getUi();
   const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.CONTROL);
   const params = getPurgeParameters();
 
   const validation = validateQuerySafety(params.query);
   if (!validation.valid) {
-    ui.alert('❌ Generation Blocked', validation.error, ui.ButtonSet.OK);
+    if (!suppressAlert) {
+      try {
+        const ui = SpreadsheetApp.getUi();
+        ui.alert('❌ Generation Blocked', validation.error, ui.ButtonSet.OK);
+      } catch (e) {}
+    }
     return;
   }
 
@@ -743,6 +859,9 @@ function updatePurgeSettings(newSettings) {
   if (newSettings.targetIdentifier !== undefined) sheet.getRange('C7').setValue(newSettings.targetIdentifier);
   if (newSettings.confirmation) sheet.getRange('C11').setValue(newSettings.confirmation);
 
-  generateAndDisplayCommand();
+  // Synchronize Target_Mailboxes tab immediately!
+  syncTargetMailboxes(newSettings.scope, newSettings.targetIdentifier, newSettings.targetsList || []);
+
+  generateAndDisplayCommand(true);
   return getSidebarData();
 }

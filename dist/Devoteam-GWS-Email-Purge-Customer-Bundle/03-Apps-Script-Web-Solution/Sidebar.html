@@ -354,6 +354,11 @@
         const targetId = document.getElementById('inputTargetId').value.trim();
         const isConfirmed = document.getElementById('checkConfirm').checked ? 'YES' : 'NO';
 
+        if (scope.includes('Single Mailbox') && !targetId) {
+          showAlert('Please specify a target email address in Target Identifier.', 'error');
+          return;
+        }
+
         const payload = {
           query: query,
           action: action,
@@ -365,7 +370,7 @@
         google.script.run
           .withSuccessHandler(function(data) {
             onDataLoaded(data);
-            showAlert('Parameters updated and GAM command refreshed!', 'success');
+            showAlert('Sheet updated! Target_Mailboxes tab synchronized with: ' + (targetId || scope), 'success');
           })
           .withFailureHandler(onError)
           .updatePurgeSettings(payload);
