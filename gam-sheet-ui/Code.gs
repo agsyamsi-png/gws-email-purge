@@ -1,11 +1,10 @@
-/**
- * @file Code.gs
- * @description Google Workspace Email Purge Controller via GAM / GAMADV-XTD3.
- * Provides a Google Sheet UI, interactive query validator, safe command generator,
- * and automated tab initializer for enterprise email containment and incident response.
- *
- * Devoteam G Cloud - Enterprise Delivery Standards
- */
+// ==============================================================================
+// Google Workspace Email Purge Controller via GAM / GAMADV-XTD3
+// Provides Google Sheet UI, interactive query validator, safe command generator,
+// and automated tab initializer for enterprise email containment.
+// Devoteam G Cloud - Enterprise Delivery Standards
+// ==============================================================================
+
 
 const CONFIG = {
   SHEET_NAMES: {
