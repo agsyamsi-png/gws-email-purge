@@ -455,11 +455,26 @@ function openAuditLogTab() {
  * Displays the Interactive Sidebar UI.
  */
 function showPurgeSidebar() {
-  const template = HtmlService.createTemplateFromFile('Sidebar');
-  const html = template.evaluate()
-    .setTitle('⚡ Workspace Purge Dashboard')
-    .setWidth(360);
-  SpreadsheetApp.getUi().showSidebar(html);
+  try {
+    const template = HtmlService.createTemplateFromFile('Sidebar');
+    const html = template.evaluate()
+      .setTitle('⚡ Workspace Purge Dashboard')
+      .setWidth(360);
+    SpreadsheetApp.getUi().showSidebar(html);
+  } catch (err) {
+    const ui = SpreadsheetApp.getUi();
+    ui.alert(
+      '⚠️ Sidebar HTML File Missing in Apps Script',
+      'The "Sidebar" HTML file was not found in your Apps Script project.\n\n' +
+      'To enable the interactive dashboard:\n' +
+      '1. Open Extensions > Apps Script.\n' +
+      '2. In the left panel next to "Files", click "+" > "HTML".\n' +
+      '3. Name the file: Sidebar (do not add .html).\n' +
+      '4. Paste the content from Sidebar.html and click Save (Cmd+S / Ctrl+S).\n' +
+      '5. Click "⚡ GAM Email Purge > 📱 Open Purge Dashboard" again.',
+      ui.ButtonSet.OK
+    );
+  }
 }
 
 /**
