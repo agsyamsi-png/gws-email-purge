@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --primary: #0F9D58;
+        --primary-dark: #0B8043;
+        --danger: #EA4335;
+        --warning: #FBBC04;
+        --accent: #4285F4;
+        --bg: #F8FAFC;
+        --card: #FFFFFF;
+        --text: #1E293B;
+        --text-muted: #64748B;
+        --border: #E2E8F0;
+        --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text);
+        padding: 16px;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .header {
+        background: #111827;
+        color: #FFFFFF;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      .header h1 {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.2px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .header p {
+        font-size: 11px;
+        color: #9CA3AF;
+        margin-top: 4px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        margin-bottom: 14px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      }
+
+      .card-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+
+      .badge-safe { background: #DCFCE7; color: #166534; }
+      .badge-warn { background: #FEF9C3; color: #854D0E; }
+      .badge-danger { background: #FEE2E2; color: #991B1B; }
+
+      .field {
+        margin-bottom: 10px;
+      }
+
+      .field label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+      }
+
+      input[type="text"], select, textarea {
+        width: 100%;
+        padding: 8px 10px;
+        font-family: var(--font-sans);
+        font-size: 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #FFFFFF;
+        color: var(--text);
+        outline: none;
+        transition: border-color 0.15s;
+      }
+
+      input[type="text"]:focus, select:focus, textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.15);
+      }
+
+      textarea {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        resize: vertical;
+        min-height: 55px;
+      }
+
+      .command-box {
+        background: #0F172A;
+        color: #38BDF8;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        padding: 10px;
+        border-radius: 6px;
+        word-break: break-all;
+        white-space: pre-wrap;
+        margin-top: 8px;
+        border: 1px solid #1E293B;
+        max-height: 160px;
+        overflow-y: auto;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: background 0.15s, transform 0.05s;
+        margin-bottom: 8px;
+      }
+
+      .btn:active { transform: scale(0.98); }
+      .btn-primary { background: var(--accent); color: #FFFFFF; }
+      .btn-primary:hover { background: #2563EB; }
+
+      .btn-success { background: var(--primary); color: #FFFFFF; }
+      .btn-success:hover { background: var(--primary-dark); }
+
+      .btn-outline {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .btn-outline:hover { background: #F1F5F9; }
+
+      .alert {
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        margin-bottom: 10px;
+        display: none;
+      }
+      .alert-error { background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; }
+      .alert-success { background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+
+      .checkbox-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: #B91C1C;
+        font-weight: 600;
+        margin-top: 6px;
+      }
+
+      .footer {
+        text-align: center;
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 16px;
+        border-top: 1px solid var(--border);
+        padding-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>⚡ GAM Mail Purge</h1>
+      <p>Enterprise Incident Response &amp; Clawback</p>
+    </div>
+
+    <div id="alertBox" class="alert"></div>
+
+    <!-- Live Configuration Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>Purge Parameters</span>
+        <span id="modeBadge" class="badge badge-safe">DRY_RUN</span>
+      </div>
+
+      <div class="field">
+        <label>Gmail RFC 822 Search Query</label>
+        <textarea id="inputQuery" placeholder='e.g. from:malicious@attacker.com subject:"Urgent Payroll"'></textarea>
+      </div>
+
+      <div class="field">
+        <label>Target Scope</label>
+        <select id="selectScope">
+          <option value="Specific Mailbox List (Tab: Target_Mailboxes)">Specific Mailbox List (Target_Mailboxes Tab)</option>
+          <option value="All Users (Domain-Wide)">All Users (Domain-Wide)</option>
+          <option value="Single Mailbox">Single Mailbox</option>
+          <option value="Organizational Unit (OU)">Organizational Unit (OU)</option>
+          <option value="Google Group Members">Google Group Members</option>
+        </select>
+      </div>
+
+      <div class="field" id="targetIdField" style="display:none;">
+        <label>Target Identifier (Email / OU / Group)</label>
+        <input type="text" id="inputTargetId" placeholder="user@domain.com or /Finance">
+      </div>
+
+      <div class="field">
+        <label>Purge Mode</label>
+        <select id="selectAction">
+          <option value="DRY_RUN (Count &amp; List Only)">DRY_RUN (Safe Simulation / Count)</option>
+          <option value="TRASH (Soft Purge - 30 Day Recovery Window)">TRASH (Soft Purge - 30-Day Recovery)</option>
+          <option value="DELETE (Hard Purge - Permanent Expunge)">DELETE (Permanent Expunge)</option>
+        </select>
+      </div>
+
+      <div class="checkbox-container" id="confirmSection" style="display:none;">
+        <input type="checkbox" id="checkConfirm">
+        <label for="checkConfirm">Confirm permanent DELETE sign-off</label>
+      </div>
+
+      <button class="btn btn-primary" onclick="syncAndUpdate()" style="margin-top: 10px;">
+        🔄 Validate &amp; Update Sheet
+      </button>
+    </div>
+
+    <!-- Generated Command Card -->
+    <div class="card">
+      <div class="card-title">
+        <span>GAM Command</span>
+        <button class="btn-outline" style="width: auto; padding: 2px 8px; font-size: 10px; margin: 0;" onclick="copyCommand()">📋 Copy</button>
+      </div>
+
+      <div class="command-box" id="commandOutput">Loading GAM syntax...</div>
+
+      <div style="margin-top: 10px;">
+        <button class="btn btn-success" onclick="downloadShellScript()">
+          💾 Download Bash Runner (.sh)
+        </button>
+      </div>
+    </div>
+
+    <div class="footer">
+      Devoteam G Cloud • Premier Partner Standards<br>
+      Always run DRY_RUN before modifying inboxes.
+    </div>
+
+    <script>
+      let currentData = null;
+
+      window.onload = function() {
+        refreshFromSheet();
+      };
+
+      function refreshFromSheet() {
+        google.script.run
+          .withSuccessHandler(onDataLoaded)
+          .withFailureHandler(onError)
+          .getSidebarData();
+      }
+
+      function onDataLoaded(data) {
+        currentData = data;
+        const p = data.params;
+
+        document.getElementById('inputQuery').value = p.query;
+        document.getElementById('selectScope').value = p.scope;
+        document.getElementById('inputTargetId').value = p.targetIdentifier || '';
+        document.getElementById('selectAction').value = p.action;
+        document.getElementById('checkConfirm').checked = (p.confirmation === 'YES');
+
+        updateUiState();
+
+        if (!data.isValid) {
+          showAlert(data.validationError, 'error');
+          document.getElementById('commandOutput').innerText = '# Query validation failed.\n# Check error message above.';
+        } else {
+          hideAlert();
+          document.getElementById('commandOutput').innerText = data.command;
+        }
+      }
+
+      function updateUiState() {
+        const action = document.getElementById('selectAction').value;
+        const scope = document.getElementById('selectScope').value;
+        const badge = document.getElementById('modeBadge');
+        const confirmSec = document.getElementById('confirmSection');
+        const targetIdField = document.getElementById('targetIdField');
+
+        // Badge & Confirmation visibility
+        if (action.startsWith('DELETE')) {
+          badge.className = 'badge badge-danger';
+          badge.innerText = 'HARD DELETE';
+          confirmSec.style.display = 'flex';
+        } else if (action.startsWith('TRASH')) {
+          badge.className = 'badge badge-warn';
+          badge.innerText = 'SOFT TRASH';
+          confirmSec.style.display = 'none';
+        } else {
+          badge.className = 'badge badge-safe';
+          badge.innerText = 'DRY_RUN';
+          confirmSec.style.display = 'none';
+        }
+
+        // Target Identifier visibility
+        if (scope.includes('Single Mailbox') || scope.includes('Organizational Unit') || scope.includes('Google Group')) {
+          targetIdField.style.display = 'block';
+        } else {
+          targetIdField.style.display = 'none';
+        }
+      }
+
+      document.getElementById('selectAction').addEventListener('change', updateUiState);
+      document.getElementById('selectScope').addEventListener('change', updateUiState);
+
+      function syncAndUpdate() {
+        const query = document.getElementById('inputQuery').value.trim();
+        const action = document.getElementById('selectAction').value;
+        const scope = document.getElementById('selectScope').value;
+        const targetId = document.getElementById('inputTargetId').value.trim();
+        const isConfirmed = document.getElementById('checkConfirm').checked ? 'YES' : 'NO';
+
+        const payload = {
+          query: query,
+          action: action,
+          scope: scope,
+          targetIdentifier: targetId,
+          confirmation: isConfirmed
+        };
+
+        google.script.run
+          .withSuccessHandler(function(data) {
+            onDataLoaded(data);
+            showAlert('Parameters updated and GAM command refreshed!', 'success');
+          })
+          .withFailureHandler(onError)
+          .updatePurgeSettings(payload);
+      }
+
+      function copyCommand() {
+        const text = document.getElementById('commandOutput').innerText;
+        navigator.clipboard.writeText(text).then(function() {
+          showAlert('GAM command copied to clipboard!', 'success');
+        });
+      }
+
+      function downloadShellScript() {
+        if (!currentData || !currentData.isValid) {
+          showAlert('Cannot export script: Query is invalid or empty.', 'error');
+          return;
+        }
+
+        const scriptContent = 
+`#!/usr/bin/env bash
+# ==============================================================================
+# Google Workspace GAM Email Purge Runner
+# Generated by GAM Purge Control Center (Devoteam G Cloud)
+# Incident ID : ${currentData.params.incidentId}
+# Operator    : ${currentData.params.operator}
+# Scope       : ${currentData.params.scope}
+# Action      : ${currentData.params.action}
+# ==============================================================================
+
+set -euo pipefail
+
+echo "=========================================================="
+echo "🚨 GWS EMAIL PURGE AUTOMATION (GAM)"
+echo "Incident : ${currentData.params.incidentId}"
+echo "Scope    : ${currentData.params.scope}"
+echo "Query    : ${currentData.params.query}"
+echo "=========================================================="
+
+# Check GAM installation
+if ! command -v gam &> /dev/null; then
+    echo "❌ Error: 'gam' CLI tool not found in PATH."
+    exit 1
+fi
+
+echo ">> Step 1: Performing Dry Run / Audit Scan..."
+${currentData.command.split('\n')[0].startsWith('#') ? currentData.command.split('\n')[1] : currentData.command}
+
+echo ""
+echo ">> Execution finished."
+`;
+
+        const blob = new Blob([scriptContent], { type: 'text/x-sh' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `purge-${currentData.params.incidentId}.sh`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      function showAlert(msg, type) {
+        const el = document.getElementById('alertBox');
+        el.className = 'alert ' + (type === 'error' ? 'alert-error' : 'alert-success');
+        el.innerText = msg;
+        el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 4000);
+      }
+
+      function hideAlert() {
+        document.getElementById('alertBox').style.display = 'none';
+      }
+
+      function onError(err) {
+        showAlert(err.message, 'error');
+      }
+    </script>
+  </body>
+</html>
