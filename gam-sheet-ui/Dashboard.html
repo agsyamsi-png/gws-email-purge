@@ -865,10 +865,13 @@
       document.getElementById('report-section').style.display = 'none';
       document.getElementById('progress-section').style.display = 'block';
 
-      const logBox = document.getElementById('live-logs');
+      const targetCountDisplay = (currentScope === 'group') ? 'Google Group' :
+        (currentScope === 'ou') ? 'Org Unit' :
+        (targets.length > 0 ? targets.length : (currentScope === 'single' ? '1' : 'Domain-Wide'));
+
       logBox.innerHTML = `[${new Date().toLocaleTimeString()}] Starting containment task ${incidentId}...<br>` +
         `[${new Date().toLocaleTimeString()}] Query: ${query}<br>` +
-        `[${new Date().toLocaleTimeString()}] Mode: ${currentAction} | Target count: ${targets.length || 'Domain-Wide'} (${targetIdentifier || 'Multiple'})<br>`;
+        `[${new Date().toLocaleTimeString()}] Mode: ${currentAction} | Target Scope: ${targetCountDisplay} (${targetIdentifier || 'Multiple'})<br>`;
 
       // Animate progress bar
       let p = 10;

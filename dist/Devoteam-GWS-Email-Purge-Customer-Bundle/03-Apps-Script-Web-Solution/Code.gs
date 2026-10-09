@@ -445,8 +445,8 @@ function promptServiceAccountSetup() {
 /**
  * Mints an impersonated OAuth2 access token via Domain-Wide Delegation (DWD).
  */
-function getDwdAccessToken(serviceAccountEmail, privateKey, userToImpersonate) {
-  const scopesToTry = [
+function getDwdAccessToken(serviceAccountEmail, privateKey, userToImpersonate, customScope) {
+  const scopesToTry = customScope ? [customScope] : [
     'https://mail.google.com/',
     'https://www.googleapis.com/auth/gmail.modify'
   ];
@@ -495,6 +495,82 @@ function getDwdAccessToken(serviceAccountEmail, privateKey, userToImpersonate) {
 }
 
 /**
+ * Resolves members of a Google Group using a multi-layer strategy:
+ * 1. GroupsApp (native Apps Script service)
+ * 2. AdminDirectory Advanced Service (if enabled)
+ * 3. DWD Service Account calling Google Admin SDK Directory API
+ */
+function resolveGroupMembers(grpEmail, saCreds, adminEmail) {
+  const members = [];
+  const cleanEmail = grpEmail.replace(/^GROUP:\s*/i, '').trim();
+  if (!cleanEmail) return members;
+
+  // Layer 1: GroupsApp (native Google Apps Script)
+  try {
+    const grp = GroupsApp.getGroupByEmail(cleanEmail);
+    if (grp) {
+      const users = grp.getUsers();
+      for (let u = 0; u < users.length; u++) {
+        const mEmail = users[u].getEmail();
+        if (mEmail && mEmail.includes('@')) {
+          members.push(mEmail);
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('Layer 1 (GroupsApp) resolution failed for ' + cleanEmail + ': ' + e);
+  }
+  if (members.length > 0) return members;
+
+  // Layer 2: AdminDirectory Advanced Service (if enabled in project)
+  try {
+    if (typeof AdminDirectory !== 'undefined' && AdminDirectory.Members && AdminDirectory.Members.list) {
+      const resp = AdminDirectory.Members.list(cleanEmail, { maxResults: 200 });
+      if (resp && resp.members) {
+        resp.members.forEach(m => {
+          if ((m.type === 'USER' || !m.type) && m.email && m.email.includes('@')) {
+            members.push(m.email);
+          }
+        });
+      }
+    }
+  } catch (e) {
+    Logger.log('Layer 2 (AdminDirectory service) failed: ' + e);
+  }
+  if (members.length > 0) return members;
+
+  // Layer 3: DWD Service Account calling Admin SDK Directory REST API
+  if (saCreds && saCreds.client_email && saCreds.private_key && adminEmail) {
+    try {
+      const dirScope = 'https://www.googleapis.com/auth/admin.directory.group.member.readonly';
+      const token = getDwdAccessToken(saCreds.client_email, saCreds.private_key, adminEmail, dirScope);
+      if (token) {
+        const url = 'https://admin.googleapis.com/admin/directory/v1/groups/' + encodeURIComponent(cleanEmail) + '/members?maxResults=200';
+        const response = UrlFetchApp.fetch(url, {
+          method: 'get',
+          headers: { Authorization: 'Bearer ' + token },
+          muteHttpExceptions: true
+        });
+        if (response.getResponseCode() === 200) {
+          const resJson = JSON.parse(response.getContentText());
+          if (resJson.members && Array.isArray(resJson.members)) {
+            resJson.members.forEach(m => {
+              if ((m.type === 'USER' || !m.type) && m.email && m.email.includes('@')) {
+                members.push(m.email);
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      Logger.log('Layer 3 (Admin Directory REST API) failed: ' + e);
+    }
+  }
+
+  return members;
+}
+
+/**
  * Executes direct web-based purge with live results report.
  */
 function executeWebPurge(payload) {
@@ -511,24 +587,29 @@ function executeWebPurge(payload) {
     throw new Error('Query Validation Blocked: ' + safety.error);
   }
 
+  // Pre-load Service Account credentials for group resolution if needed
+  const saKeyJson = PropertiesService.getScriptProperties().getProperty('SA_KEY');
+  let saCreds = null;
+  if (saKeyJson) {
+    try { saCreds = JSON.parse(saKeyJson); } catch (e) {}
+  }
+
   // 1. Sanitize incoming targets: expand GROUP: entries or strip non-user markers
   const sanitizedTargets = [];
   for (let i = 0; i < targets.length; i++) {
     const rawTarget = String(targets[i]).trim();
     if (rawTarget.toUpperCase().startsWith('GROUP:')) {
       const gEmail = rawTarget.replace(/^GROUP:\s*/i, '').trim();
-      let groupMembers = [];
-      try {
-        const grp = GroupsApp.getGroupByEmail(gEmail);
-        if (grp) {
-          groupMembers = grp.getUsers().map(u => u.getEmail()).filter(e => e && e.includes('@'));
-        }
-      } catch (e) {}
+      const groupMembers = resolveGroupMembers(gEmail, saCreds, operator);
 
       if (groupMembers.length > 0) {
         sanitizedTargets.push(...groupMembers);
       } else {
-        throw new Error("Target '" + gEmail + "' adalah Google Group. Google DWD (Service Account) hanya dapat meng-impersonate mailbox akun user perorangan, bukan alamat Group. Silakan jalankan perintah GAM CLI di terminal ('gam group \"" + gEmail + "\" ...') untuk mengeksekusi ke seluruh anggota group, atau masukkan daftar email anggota di kolom Target Mailboxes.");
+        throw new Error("Target '" + gEmail + "' adalah Google Group. Sistem telah mencoba membaca anggota group namun tidak berhasil (izin group privat atau scope Directory belum dibuka di DWD).\n\n" +
+          "👉 Solusi Cepat:\n" +
+          "1. Jalankan perintah GAM CLI di terminal (Recommended):\n" +
+          "   gam group \"" + gEmail + "\" print messages query \"" + query + "\"\n\n" +
+          "2. Atau masukkan email anggota group secara manual di tab 'Targeted List' / kolom Target Mailboxes.");
       }
     } else if (rawTarget.toUpperCase().startsWith('OU:')) {
       const ouPath = rawTarget.replace(/^OU:\s*/i, '').trim();
@@ -554,21 +635,15 @@ function executeWebPurge(payload) {
       throw new Error('Google Group scope requires a group email address in target identifier.');
     }
     targetIdentifier = grpEmail;
-    try {
-      const grp = GroupsApp.getGroupByEmail(grpEmail);
-      if (grp) {
-        const users = grp.getUsers();
-        for (let u = 0; u < users.length; u++) {
-          const mEmail = users[u].getEmail();
-          if (mEmail && mEmail.includes('@')) {
-            targets.push(mEmail);
-          }
-        }
-      }
-    } catch (e) {}
-
-    if (targets.length === 0) {
-      throw new Error("Target '" + grpEmail + "' adalah Google Group. Google DWD (Service Account) hanya dapat meng-impersonate mailbox akun user perorangan, bukan alamat Group. Silakan jalankan perintah GAM CLI di terminal ('gam group \"" + grpEmail + "\" ...') untuk mengeksekusi ke seluruh anggota group, atau masukkan daftar email anggota di kolom Target Mailboxes.");
+    const groupMembers = resolveGroupMembers(grpEmail, saCreds, operator);
+    if (groupMembers.length > 0) {
+      targets.push(...groupMembers);
+    } else {
+      throw new Error("Target '" + grpEmail + "' adalah Google Group. Sistem telah mencoba membaca anggota group namun tidak berhasil (izin group privat atau scope Directory belum dibuka di DWD).\n\n" +
+        "👉 Solusi Cepat:\n" +
+        "1. Jalankan perintah GAM CLI di terminal (Recommended):\n" +
+        "   gam group \"" + grpEmail + "\" print messages query \"" + query + "\"\n\n" +
+        "2. Atau masukkan email anggota group secara manual di tab 'Targeted List' / kolom Target Mailboxes.");
     }
   } else if (scope.includes('organizational unit') || scope === 'ou' || /\bou\b/.test(scope)) {
     const ouPath = (targetIdentifier || '/').replace(/^OU:\s*/i, '').trim();
@@ -594,13 +669,6 @@ function executeWebPurge(payload) {
 
   // Synchronize Target_Mailboxes tab with real targets before execution
   syncTargetMailboxes(scope, targetIdentifier, targets);
-
-  // Check Service Account credentials
-  const saKeyJson = PropertiesService.getScriptProperties().getProperty('SA_KEY');
-  let saCreds = null;
-  if (saKeyJson) {
-    try { saCreds = JSON.parse(saKeyJson); } catch (e) {}
-  }
 
   let scannedCount = 0;
   let matchedCount = 0;
