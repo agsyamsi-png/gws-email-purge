@@ -206,7 +206,7 @@ def build_deployment_guide_docx(output_path):
     b_rows = [
         ("01-Customer-Deployment-Guide", "DOCX / MD", "Executive summary, architecture, and step-by-step setup checklist."),
         ("02-Operational-SOP-Playbook", "DOCX / MD", "Official Devoteam SecOps Incident Response Playbook (RACI, queries, recovery)."),
-        ("03-Apps-Script-Web-Solution", "Code.gs + HTML", "Production 1-click web portal (Dashboard.html) & backend controller (Code.gs)."),
+        ("03-Apps-Script-Command-Center", "Code.gs + HTML", "Interactive Google Sheets GAM Command Builder (Sidebar.html) & controller (Code.gs)."),
         ("04-CLI-Automation", "SH + CSV", "Optional advanced CLI automation script (gam-purge-runner.sh) for engineers."),
         ("05-Architecture-and-Security", "Docs / ADRs", "Full STRIDE threat model, security review, and architecture decision records."),
     ]
@@ -230,7 +230,7 @@ def build_deployment_guide_docx(output_path):
     h3 = doc.add_paragraph()
     h3.paragraph_format.space_before = Pt(16)
     h3.paragraph_format.space_after = Pt(6)
-    r_h3 = h3.add_run("3. System Architecture & Dual Execution Model")
+    r_h3 = h3.add_run("3. System Architecture & GAM Command Center")
     r_h3.font.name = 'Montserrat'
     r_h3.font.size = Pt(14)
     r_h3.font.bold = True
@@ -239,12 +239,11 @@ def build_deployment_guide_docx(output_path):
     p_arch = doc.add_paragraph()
     p_arch.paragraph_format.space_after = Pt(8)
     p_arch.add_run(
-        "The architecture decouples the presentation interface from the Google Cloud execution plane to maintain least privilege:\n\n"
+        "The architecture decouples the presentation interface from the Google Cloud execution plane to maintain least privilege and maximum throughput:\n\n"
         "• Presentation Layer (Control Plane): Built with Google Apps Script (HTML5/CSS3). Accessible directly within Google Sheets "
-        "as a modal dialog or deployed as an independent Web App URL bound to corporate Google SSO.\n"
-        "• Execution Layer (Data Plane): The backend Controller utilizes Domain-Wide Delegation (DWD). It dynamically mints short-lived "
-        "OAuth 2.0 access tokens signed with RS256 using a Google Cloud Service Account private key stored in Google's encrypted ScriptProperties. "
-        "It then calls the Gmail REST API (v1) to surgically trash or expunge target messages.\n"
+        "as an interactive Quick Sidebar command generator (Sidebar.html) and Incident Response Control Center.\n"
+        "• Execution Layer (Data Plane): The command generator dynamically builds syntax-validated, safety-checked GAM CLI commands. "
+        "GAM runs locally with multi-threading, native group expansion, and without Apps Script execution timeout constraints.\n"
         "• Security & Audit Plane: All incident queries, operator emails, target mailboxes, and cryptographic SHA-256 hashes are immutably logged "
         "to the 'Audit_Log' tab. Zero email body text or attachment payloads are ever logged, strictly adhering to GDPR and PII compliance."
     )
@@ -262,10 +261,9 @@ def build_deployment_guide_docx(output_path):
     steps = [
         ("Step 1: Create Google Sheet", "Open https://sheets.new and name your spreadsheet '[SecOps] Workspace Threat Containment Center'."),
         ("Step 2: Open Apps Script Editor", "In Google Sheets, navigate to Extensions > Apps Script in the top menu."),
-        ("Step 3: Paste Code.gs", "Replace the default code in Code.gs with the file provided in 03-Apps-Script-Web-Solution/Code.gs."),
-        ("Step 4: Add Dashboard.html", "In Apps Script, click '+' next to Files > HTML, name it 'Dashboard', and paste the contents of Dashboard.html."),
-        ("Step 5: (Optional) Add Sidebar.html", "Click '+' > HTML, name it 'Sidebar', and paste the contents of Sidebar.html. Save the project (Cmd+S / Ctrl+S)."),
-        ("Step 6: Initialize Sheet & Launch", "Refresh your Google Sheet. Click '⚡ GAM Email Purge' in the menu > '⚙️ Initialize / Format Sheet Tabs'. Then click '🚀 Open Purge Web Portal' to begin!"),
+        ("Step 3: Paste Code.gs", "Replace default code in Code.gs with the file provided in 03-Apps-Script-Command-Center/Code.gs."),
+        ("Step 4: Add Sidebar.html", "In Apps Script, click '+' next to Files > HTML, name it 'Sidebar', and paste the contents of Sidebar.html. Save the project (Cmd+S / Ctrl+S)."),
+        ("Step 5: Initialize Sheet & Launch", "Refresh your Google Sheet. Click '⚡ GAM Email Purge' in the menu > '⚙️ Initialize / Format Sheet Tabs'. Then click '📱 Open GAM Command Builder (Sidebar)' to begin!"),
     ]
 
     for title, desc in steps:
@@ -319,7 +317,7 @@ def build_customer_bundle():
     # Subdirectories
     subdirs = [
         "02-Operational-SOP-Playbook",
-        "03-Apps-Script-Web-Solution",
+        "03-Apps-Script-Command-Center",
         "04-CLI-Automation",
         "05-Architecture-and-Security-Assurance",
         "05-Architecture-and-Security-Assurance/adr"
@@ -346,11 +344,11 @@ def build_customer_bundle():
 ## 1. Executive Summary
 During active phishing campaigns, ransomware lures, or accidental data leaks, SecOps and IT Helpdesk teams must act within minutes to contain the blast radius.
 
-Devoteam G Cloud has engineered this 100% web-based containment solution for your Google Workspace tenant. It empowers administrators to:
-1. **Sign in with Google Admin SSO** (no terminal, no CLI commands).
-2. **Input threat email details** via an intuitive visual form (Sender, Subject, Message-ID, Date).
-3. **Execute 1-click purges** (Dry Run simulation, Soft Trash, or Permanent Delete).
-4. **Generate instant incident compliance reports** with live metrics and 1-click CSV download.
+Devoteam G Cloud has engineered this Incident Response Control Center for your Google Workspace tenant. It empowers administrators to:
+1. **Design and validate threat search queries** visually with real-time safety guardrails.
+2. **Auto-generate 1-click GAM CLI commands** for Single Mailbox, Google Group, OU, Domain-Wide, or Custom Mailbox lists.
+3. **Execute high-speed, multi-threaded email containment** (Dry Run count, Soft Trash, or Permanent Delete) via GAM CLI without Apps Script timeout limitations.
+4. **Maintain an immutable audit trail** in Google Sheets logging operator identity, incident scope, and cryptographic query hashes (GDPR/PII compliant).
 
 ---
 
@@ -364,10 +362,9 @@ Devoteam-GWS-Email-Purge-Customer-Bundle/
 ├── 02-Operational-SOP-Playbook/
 │   ├── DEV-SOP-GWS-Email-Purge-Playbook.docx     # Enterprise Incident Response SOP (.docx)
 │   └── DEV-SOP-GWS-Email-Purge-Playbook.md       # Full SOP Markdown reference
-├── 03-Apps-Script-Web-Solution/
-│   ├── Code.gs                                   # Apps Script backend + DWD token engine
-│   ├── Dashboard.html                            # 1-Click web containment portal UI
-│   ├── Sidebar.html                              # Quick sidebar UI for Google Sheets
+├── 03-Apps-Script-Command-Center/
+│   ├── Code.gs                                   # Apps Script backend controller & validator
+│   ├── Sidebar.html                              # Interactive Quick Sidebar UI for Google Sheets
 │   └── STEP-BY-STEP-INSTALLATION.md              # 3-minute visual installation guide
 ├── 04-CLI-Automation/
 │   ├── gam-purge-runner.sh                       # Production bash CLI runner
@@ -384,22 +381,19 @@ Devoteam-GWS-Email-Purge-Customer-Bundle/
 
 1. **Create Sheet:** Open [sheets.new](https://sheets.new) and name it `[SecOps] Threat Containment Center`.
 2. **Open Apps Script:** Navigate to **Extensions** > **Apps Script**.
-3. **Copy Code.gs:** Copy [`03-Apps-Script-Web-Solution/Code.gs`](./03-Apps-Script-Web-Solution/Code.gs) into `Code.gs`.
-4. **Add Dashboard.html:** Click **+** (Add a file) > **HTML**, name it `Dashboard`, and paste [`03-Apps-Script-Web-Solution/Dashboard.html`](./03-Apps-Script-Web-Solution/Dashboard.html).
-5. **Add Sidebar.html:** Click **+** > **HTML**, name it `Sidebar`, and paste [`03-Apps-Script-Web-Solution/Sidebar.html`](./03-Apps-Script-Web-Solution/Sidebar.html). Save the project (`Cmd+S` / `Ctrl+S`).
-6. **Initialize Sheet:** Return to your Google Sheet, refresh the browser, click **`⚡ GAM Email Purge`** in the top menu, and select **`⚙️ Initialize / Format Sheet Tabs`**.
-7. **Launch the Portal:**
-   - **In Google Sheets:** Click **`⚡ GAM Email Purge`** > **`🚀 Open Purge Web Portal (Full Dashboard)`**.
-   - **As Standalone Web App:** In Apps Script, click **Deploy** > **New deployment** > **Web app** (`Execute as: User accessing the web app`, `Who has access: Anyone within your domain`).
+3. **Copy Code.gs:** Copy [`03-Apps-Script-Command-Center/Code.gs`](./03-Apps-Script-Command-Center/Code.gs) into `Code.gs`.
+4. **Add Sidebar.html:** Click **+** (Add a file) > **HTML**, name it `Sidebar`, and paste [`03-Apps-Script-Command-Center/Sidebar.html`](./03-Apps-Script-Command-Center/Sidebar.html). Save the project (`Cmd+S` / `Ctrl+S`).
+5. **Initialize Sheet:** Return to your Google Sheet, refresh the browser, click **`⚡ GAM Email Purge`** in the top menu, and select **`⚙️ Initialize / Format Sheet Tabs`**.
+6. **Launch Sidebar:** Click **`⚡ GAM Email Purge`** > **`📱 Open GAM Command Builder (Sidebar)`** to begin!
 
 ---
 
-## 4. Enabling Direct In-Browser Purging (Service Account Setup)
-To execute purges directly inside the browser without using a terminal:
-1. Open the Web Portal and click **⚙️ Settings & DWD Key**.
-2. Paste your Google Cloud Service Account JSON Key (authorized for Domain-Wide Delegation with scope `https://mail.google.com/`).
-3. Click **Save Key**. The key is stored securely in encrypted Google `ScriptProperties`.
-4. Direct 1-click in-browser purges are now active.
+## 4. Execution Workflow
+
+1. In the **Quick Sidebar**, configure your Threat Query, Target Scope (Single Mailbox, Google Group, OU, Domain, or Sheet list), and Action (Dry Run, Trash, or Delete).
+2. Click **Copy GAM Command** or **Download Runner Script (.sh)**.
+3. Paste into your administrative terminal with GAM configured and execute.
+4. GAM handles multi-threading, Google Group member expansion, and large-scale mailbox iteration natively with zero API timeout risk.
 
 ---
 
@@ -420,7 +414,7 @@ Welcome to your Google Workspace Threat Containment Customer Delivery Package.
 
 This package provides everything your IT and Security Operations teams need to
 instantly contain phishing outbreaks, malware lures, or data spills across your
-Google Workspace organization without requiring terminal or CLI tools.
+Google Workspace organization using Google Sheets and GAM CLI.
 
 --------------------------------------------------------------------------------
 HOW TO GET STARTED IN 3 STEPS:
@@ -430,9 +424,9 @@ HOW TO GET STARTED IN 3 STEPS:
    Open "01-Customer-Deployment-Guide.docx" (or .md) for an executive summary
    and technical architecture overview.
 
-2. INSTALL THE WEB PORTAL (TAKES 3 MINUTES):
-   Follow "03-Apps-Script-Web-Solution/STEP-BY-STEP-INSTALLATION.md" to paste
-   Code.gs and Dashboard.html into a Google Sheet.
+2. INSTALL THE COMMAND CENTER (TAKES 3 MINUTES):
+   Follow "03-Apps-Script-Command-Center/STEP-BY-STEP-INSTALLATION.md" to paste
+   Code.gs and Sidebar.html into a Google Sheet.
 
 3. TRAIN YOUR DUTY ADMINISTRATORS:
    Share "02-Operational-SOP-Playbook/DEV-SOP-GWS-Email-Purge-Playbook.docx"
@@ -447,9 +441,8 @@ PACKAGE STRUCTURE:
 ├── 02-Operational-SOP-Playbook/             : Official Devoteam Incident Response SOP
 │   ├── DEV-SOP-GWS-Email-Purge-Playbook.docx
 │   └── DEV-SOP-GWS-Email-Purge-Playbook.md
-├── 03-Apps-Script-Web-Solution/             : 1-Click Web Portal & Apps Script Engine
+├── 03-Apps-Script-Command-Center/           : Google Sheets Incident Control Center
 │   ├── Code.gs
-│   ├── Dashboard.html
 │   ├── Sidebar.html
 │   └── STEP-BY-STEP-INSTALLATION.md
 ├── 04-CLI-Automation/                       : Advanced Terminal Scripts (GAM / Bash)
@@ -480,26 +473,22 @@ Devoteam G Cloud — Google Cloud Premier Partner.
         os.path.join(bundle_dir, "02-Operational-SOP-Playbook", "DEV-SOP-GWS-Email-Purge-Playbook.md")
     )
 
-    # 5. Copy 03-Apps-Script-Web-Solution
+    # 5. Copy 03-Apps-Script-Command-Center
     shutil.copy(
         os.path.join(base_dir, "gam-sheet-ui", "Code.gs"),
-        os.path.join(bundle_dir, "03-Apps-Script-Web-Solution", "Code.gs")
-    )
-    shutil.copy(
-        os.path.join(base_dir, "gam-sheet-ui", "Dashboard.html"),
-        os.path.join(bundle_dir, "03-Apps-Script-Web-Solution", "Dashboard.html")
+        os.path.join(bundle_dir, "03-Apps-Script-Command-Center", "Code.gs")
     )
     shutil.copy(
         os.path.join(base_dir, "gam-sheet-ui", "Sidebar.html"),
-        os.path.join(bundle_dir, "03-Apps-Script-Web-Solution", "Sidebar.html")
+        os.path.join(bundle_dir, "03-Apps-Script-Command-Center", "Sidebar.html")
     )
 
     # Write STEP-BY-STEP-INSTALLATION.md
-    install_md_path = os.path.join(bundle_dir, "03-Apps-Script-Web-Solution", "STEP-BY-STEP-INSTALLATION.md")
+    install_md_path = os.path.join(bundle_dir, "03-Apps-Script-Command-Center", "STEP-BY-STEP-INSTALLATION.md")
     with open(install_md_path, "w", encoding="utf-8") as f:
-        f.write("""# 3-Minute Quick Installation Guide: Web Containment Portal
+        f.write("""# 3-Minute Quick Installation Guide: Threat Containment Control Center
 
-This guide walks you through deploying the **1-Click Web Containment Portal** into your Google Workspace domain.
+This guide walks you through deploying the **Incident Response Control Center & GAM Command Builder** into your Google Workspace domain.
 
 ---
 
@@ -521,23 +510,16 @@ This guide walks you through deploying the **1-Click Web Containment Portal** in
 
 ---
 
-### Step 4: Add `Dashboard.html`
+### Step 4: Add `Sidebar.html`
 1. In the left panel of Apps Script, click the **`+`** icon next to **Files** and select **HTML**.
-2. Name the file: `Dashboard` (do NOT type `.html`, Apps Script adds it automatically).
+2. Name the file: `Sidebar` (do NOT type `.html`, Apps Script adds it automatically).
 3. Select all default text and delete it.
-4. Copy the entire contents of [`Dashboard.html`](./Dashboard.html) and paste it into the file.
+4. Copy the entire contents of [`Sidebar.html`](./Sidebar.html) and paste it into the file.
+5. Click the **Save project** floppy disk icon (`Cmd+S` on Mac or `Ctrl+S` on Windows).
 
 ---
 
-### Step 5: (Optional) Add `Sidebar.html`
-1. Click the **`+`** icon next to **Files** and select **HTML**.
-2. Name the file: `Sidebar`.
-3. Copy the entire contents of [`Sidebar.html`](./Sidebar.html) and paste it into the file.
-4. Click the **Save project** floppy disk icon (`Cmd+S` on Mac or `Ctrl+S` on Windows).
-
----
-
-### Step 6: Initialize Sheet Tabs
+### Step 5: Initialize Sheet Tabs
 1. Go back to your Google Sheet tab and refresh the page (`Cmd+R` / `F5`).
 2. Wait a few seconds: a new menu item **`⚡ GAM Email Purge`** will appear in the top toolbar.
 3. Click **`⚡ GAM Email Purge`** > **`⚙️ Initialize / Format Sheet Tabs`**.
@@ -549,22 +531,10 @@ This guide walks you through deploying the **1-Click Web Containment Portal** in
 
 ---
 
-### Step 7: Launch the Web Portal!
-You have two ways to open the portal:
-
-* **Inside Google Sheets:** Click **`⚡ GAM Email Purge`** > **`🚀 Open Purge Web Portal (Full Dashboard)`**.
-* **As a Standalone Web URL:** In Apps Script, click **Deploy** > **New deployment** > **Web app**.
-  - **Execute as:** `User accessing the web app` (or `Me`)
-  - **Who has access:** `Anyone within your organization`
-  - Click **Deploy** and bookmark the resulting URL!
-
----
-
-### Enabling Direct In-Browser Purging (Service Account Setup)
-1. In the Web Portal, click **⚙️ Settings & DWD Key** in the top-right corner.
-2. Paste your Google Cloud Service Account JSON Key (delegated for `https://mail.google.com/`).
-3. Click **Save Key**. The key is stored securely in encrypted Google `ScriptProperties`.
-4. Now, any purge executed in the portal immediately contacts the Gmail API to trash or expunge matching emails with 1 click!
+### Step 6: Launch the Command Builder!
+1. Click **`⚡ GAM Email Purge`** > **`📱 Open GAM Command Builder (Sidebar)`**.
+2. Configure your query, target scope, and action.
+3. Click **Copy GAM Command** or **Download Runner Script (.sh)** and run directly in your terminal!
 """)
 
     # 6. Copy 04-CLI-Automation

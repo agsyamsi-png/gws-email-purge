@@ -10,11 +10,11 @@
 ## 1. Executive Summary
 During active phishing campaigns, ransomware lures, or accidental data leaks, SecOps and IT Helpdesk teams must act within minutes to contain the blast radius.
 
-Devoteam G Cloud has engineered this 100% web-based containment solution for your Google Workspace tenant. It empowers administrators to:
-1. **Sign in with Google Admin SSO** (no terminal, no CLI commands).
-2. **Input threat email details** via an intuitive visual form (Sender, Subject, Message-ID, Date).
-3. **Execute 1-click purges** (Dry Run simulation, Soft Trash, or Permanent Delete).
-4. **Generate instant incident compliance reports** with live metrics and 1-click CSV download.
+Devoteam G Cloud has engineered this Incident Response Control Center for your Google Workspace tenant. It empowers administrators to:
+1. **Design and validate threat search queries** visually with real-time safety guardrails.
+2. **Auto-generate 1-click GAM CLI commands** for Single Mailbox, Google Group, OU, Domain-Wide, or Custom Mailbox lists.
+3. **Execute high-speed, multi-threaded email containment** (Dry Run count, Soft Trash, or Permanent Delete) via GAM CLI without Apps Script timeout limitations.
+4. **Maintain an immutable audit trail** in Google Sheets logging operator identity, incident scope, and cryptographic query hashes (GDPR/PII compliant).
 
 ---
 
@@ -28,10 +28,9 @@ Devoteam-GWS-Email-Purge-Customer-Bundle/
 ├── 02-Operational-SOP-Playbook/
 │   ├── DEV-SOP-GWS-Email-Purge-Playbook.docx     # Enterprise Incident Response SOP (.docx)
 │   └── DEV-SOP-GWS-Email-Purge-Playbook.md       # Full SOP Markdown reference
-├── 03-Apps-Script-Web-Solution/
-│   ├── Code.gs                                   # Apps Script backend + DWD token engine
-│   ├── Dashboard.html                            # 1-Click web containment portal UI
-│   ├── Sidebar.html                              # Quick sidebar UI for Google Sheets
+├── 03-Apps-Script-Command-Center/
+│   ├── Code.gs                                   # Apps Script backend controller & validator
+│   ├── Sidebar.html                              # Interactive Quick Sidebar UI for Google Sheets
 │   └── STEP-BY-STEP-INSTALLATION.md              # 3-minute visual installation guide
 ├── 04-CLI-Automation/
 │   ├── gam-purge-runner.sh                       # Production bash CLI runner
@@ -48,22 +47,19 @@ Devoteam-GWS-Email-Purge-Customer-Bundle/
 
 1. **Create Sheet:** Open [sheets.new](https://sheets.new) and name it `[SecOps] Threat Containment Center`.
 2. **Open Apps Script:** Navigate to **Extensions** > **Apps Script**.
-3. **Copy Code.gs:** Copy [`03-Apps-Script-Web-Solution/Code.gs`](./03-Apps-Script-Web-Solution/Code.gs) into `Code.gs`.
-4. **Add Dashboard.html:** Click **+** (Add a file) > **HTML**, name it `Dashboard`, and paste [`03-Apps-Script-Web-Solution/Dashboard.html`](./03-Apps-Script-Web-Solution/Dashboard.html).
-5. **Add Sidebar.html:** Click **+** > **HTML**, name it `Sidebar`, and paste [`03-Apps-Script-Web-Solution/Sidebar.html`](./03-Apps-Script-Web-Solution/Sidebar.html). Save the project (`Cmd+S` / `Ctrl+S`).
-6. **Initialize Sheet:** Return to your Google Sheet, refresh the browser, click **`⚡ GAM Email Purge`** in the top menu, and select **`⚙️ Initialize / Format Sheet Tabs`**.
-7. **Launch the Portal:**
-   - **In Google Sheets:** Click **`⚡ GAM Email Purge`** > **`🚀 Open Purge Web Portal (Full Dashboard)`**.
-   - **As Standalone Web App:** In Apps Script, click **Deploy** > **New deployment** > **Web app** (`Execute as: User accessing the web app`, `Who has access: Anyone within your domain`).
+3. **Copy Code.gs:** Copy [`03-Apps-Script-Command-Center/Code.gs`](./03-Apps-Script-Command-Center/Code.gs) into `Code.gs`.
+4. **Add Sidebar.html:** Click **+** (Add a file) > **HTML**, name it `Sidebar`, and paste [`03-Apps-Script-Command-Center/Sidebar.html`](./03-Apps-Script-Command-Center/Sidebar.html). Save the project (`Cmd+S` / `Ctrl+S`).
+5. **Initialize Sheet:** Return to your Google Sheet, refresh the browser, click **`⚡ GAM Email Purge`** in the top menu, and select **`⚙️ Initialize / Format Sheet Tabs`**.
+6. **Launch Sidebar:** Click **`⚡ GAM Email Purge`** > **`📱 Open GAM Command Builder (Sidebar)`** to begin!
 
 ---
 
-## 4. Enabling Direct In-Browser Purging (Service Account Setup)
-To execute purges directly inside the browser without using a terminal:
-1. Open the Web Portal and click **⚙️ Settings & DWD Key**.
-2. Paste your Google Cloud Service Account JSON Key (authorized for Domain-Wide Delegation with scope `https://mail.google.com/`).
-3. Click **Save Key**. The key is stored securely in encrypted Google `ScriptProperties`.
-4. Direct 1-click in-browser purges are now active.
+## 4. Execution Workflow
+
+1. In the **Quick Sidebar**, configure your Threat Query, Target Scope (Single Mailbox, Google Group, OU, Domain, or Sheet list), and Action (Dry Run, Trash, or Delete).
+2. Click **Copy GAM Command** or **Download Runner Script (.sh)**.
+3. Paste into your administrative terminal with GAM configured and execute.
+4. GAM handles multi-threading, Google Group member expansion, and large-scale mailbox iteration natively with zero API timeout risk.
 
 ---
 

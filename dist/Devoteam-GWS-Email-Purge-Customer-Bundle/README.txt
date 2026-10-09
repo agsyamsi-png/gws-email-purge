@@ -8,7 +8,7 @@ Welcome to your Google Workspace Threat Containment Customer Delivery Package.
 
 This package provides everything your IT and Security Operations teams need to
 instantly contain phishing outbreaks, malware lures, or data spills across your
-Google Workspace organization without requiring terminal or CLI tools.
+Google Workspace organization using Google Sheets and GAM CLI.
 
 --------------------------------------------------------------------------------
 HOW TO GET STARTED IN 3 STEPS:
@@ -18,9 +18,9 @@ HOW TO GET STARTED IN 3 STEPS:
    Open "01-Customer-Deployment-Guide.docx" (or .md) for an executive summary
    and technical architecture overview.
 
-2. INSTALL THE WEB PORTAL (TAKES 3 MINUTES):
-   Follow "03-Apps-Script-Web-Solution/STEP-BY-STEP-INSTALLATION.md" to paste
-   Code.gs and Dashboard.html into a Google Sheet.
+2. INSTALL THE COMMAND CENTER (TAKES 3 MINUTES):
+   Follow "03-Apps-Script-Command-Center/STEP-BY-STEP-INSTALLATION.md" to paste
+   Code.gs and Sidebar.html into a Google Sheet.
 
 3. TRAIN YOUR DUTY ADMINISTRATORS:
    Share "02-Operational-SOP-Playbook/DEV-SOP-GWS-Email-Purge-Playbook.docx"
@@ -35,9 +35,8 @@ PACKAGE STRUCTURE:
 ├── 02-Operational-SOP-Playbook/             : Official Devoteam Incident Response SOP
 │   ├── DEV-SOP-GWS-Email-Purge-Playbook.docx
 │   └── DEV-SOP-GWS-Email-Purge-Playbook.md
-├── 03-Apps-Script-Web-Solution/             : 1-Click Web Portal & Apps Script Engine
+├── 03-Apps-Script-Command-Center/           : Google Sheets Incident Control Center
 │   ├── Code.gs
-│   ├── Dashboard.html
 │   ├── Sidebar.html
 │   └── STEP-BY-STEP-INSTALLATION.md
 ├── 04-CLI-Automation/                       : Advanced Terminal Scripts (GAM / Bash)

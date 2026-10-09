@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+const crypto = require('crypto');
 
 console.log('================================================================');
 console.log('🚀 RUNNING RIGOROUS TEST SUITE: GWS EMAIL PURGE SOLUTION');
@@ -50,23 +51,70 @@ const SpreadsheetApp = {
       const sheet = createMockSheet(name);
       mockSpreadsheetData.set(name, sheet);
       return sheet;
-    }
-  })
+    },
+    setActiveSheet: () => {},
+    toast: () => {}
+  }),
+  getUi: () => ({
+    alert: () => {},
+    showSidebar: () => {},
+    createMenu: () => ({ addItem: () => ({ addToUi: () => {} }) }),
+    ButtonSet: { OK: 'OK' }
+  }),
+  newDataValidation: () => {
+    const builder = {
+      requireValueInList: () => builder,
+      setAllowInvalid: () => builder,
+      build: () => ({})
+    };
+    return builder;
+  }
 };
+
+function parseA1(str) {
+  const match = str.match(/^([A-Z]+)(\d+)$/);
+  if (!match) return { row: 1, col: 1 };
+  const colStr = match[1];
+  const row = parseInt(match[2], 10);
+  let col = 0;
+  for (let i = 0; i < colStr.length; i++) {
+    col = col * 26 + (colStr.charCodeAt(i) - 64);
+  }
+  return { row, col };
+}
 
 function createMockSheet(name) {
   let store = [];
   return {
     getName: () => name,
     getRange: (startRow, startCol, numRows, numCols) => {
+      if (typeof startRow === 'string') {
+        const a1 = startRow.toUpperCase();
+        if (a1.includes(':')) {
+          const parts = a1.split(':');
+          const p1 = parseA1(parts[0]);
+          const p2 = parseA1(parts[1]);
+          startRow = p1.row;
+          startCol = p1.col;
+          numRows = p2.row - p1.row + 1;
+          numCols = p2.col - p1.col + 1;
+        } else {
+          const p = parseA1(a1);
+          startRow = p.row;
+          startCol = p.col;
+          numRows = 1;
+          numCols = 1;
+        }
+      }
       const nr = numRows || 1;
       const nc = numCols || 1;
-      return {
+      const rangeObj = {
         getValue: () => (store[startRow - 1] && store[startRow - 1][startCol - 1]) || '',
         setValue: (v) => {
           while (store.length < startRow) store.push([]);
           while (store[startRow - 1].length < startCol) store[startRow - 1].push('');
           store[startRow - 1][startCol - 1] = v;
+          return rangeObj;
         },
         getValues: () => {
           const res = [];
@@ -91,15 +139,20 @@ function createMockSheet(name) {
               store[rowIdx][colIdx] = vals[r][c];
             }
           }
+          return rangeObj;
         },
-        setBackground: () => {},
-        setFontColor: () => {},
-        setFontWeight: () => {},
-        setFontSize: () => {},
-        setHorizontalAlignment: () => {},
-        setWrap: () => {},
-        setNote: () => {},
-        setDataValidation: () => {},
+        merge: () => rangeObj,
+        setBackground: () => rangeObj,
+        setFontColor: () => rangeObj,
+        setFontWeight: () => rangeObj,
+        setFontStyle: () => rangeObj,
+        setFontFamily: () => rangeObj,
+        setFontSize: () => rangeObj,
+        setHorizontalAlignment: () => rangeObj,
+        setVerticalAlignment: () => rangeObj,
+        setWrap: () => rangeObj,
+        setNote: () => rangeObj,
+        setDataValidation: () => rangeObj,
         clearContent: () => {
           for (let r = 0; r < nr; r++) {
             const rowIdx = startRow - 1 + r;
@@ -115,8 +168,10 @@ function createMockSheet(name) {
           while (store.length > 1 && store[store.length - 1].every(x => x === '')) {
             store.pop();
           }
+          return rangeObj;
         }
       };
+      return rangeObj;
     },
     getDataRange: () => ({
       getValues: () => store.slice()
@@ -148,7 +203,11 @@ const Session = {
 const Utilities = {
   base64EncodeWebSafe: (str) => Buffer.from(str).toString('base64url'),
   computeRsaSha256Signature: (str, key) => Buffer.from('mock-signature'),
-  formatDate: (date) => '2026-10-09 12:00:00'
+  formatDate: (date) => '2026-10-09 12:00:00',
+  DigestAlgorithm: {
+    SHA_256: 'SHA_256'
+  },
+  computeDigest: (algo, str) => crypto.createHash('sha256').update(str).digest()
 };
 
 const HtmlService = {
@@ -295,6 +354,32 @@ it('Generates correct Google Group command and NEVER collides with OU', () => {
   assert.ok(cmd.startsWith('gam group '), 'Command must start with "gam group"');
 });
 
+it('Generates correct Google Group DELETE command', () => {
+  const cmd = sandbox.buildGamCommand({
+    scope: 'Google Group Members',
+    targetIdentifier: 'branch.tanahgrogot@andhika.com',
+    action: 'DELETE (Hard Purge - Permanent Expunge)',
+    query: 'from:bad@evil.com subject:"Phish"'
+  });
+  assert.strictEqual(
+    cmd,
+    'gam group "branch.tanahgrogot@andhika.com" delete messages query "from:bad@evil.com subject:\\"Phish\\"" doit'
+  );
+});
+
+it('Generates correct Google Group DRY_RUN command', () => {
+  const cmd = sandbox.buildGamCommand({
+    scope: 'Google Group Members',
+    targetIdentifier: 'branch.tanahgrogot@andhika.com',
+    action: 'DRY_RUN (Count & List Only)',
+    query: 'from:bad@evil.com subject:"Phish"'
+  });
+  assert.strictEqual(
+    cmd,
+    'gam group "branch.tanahgrogot@andhika.com" print messages query "from:bad@evil.com subject:\\"Phish\\""'
+  );
+});
+
 it('Generates correct Organizational Unit (OU) command', () => {
   const cmd = sandbox.buildGamCommand({
     scope: 'Organizational Unit (OU)',
@@ -396,135 +481,50 @@ it('Synchronizes explicit user list and ignores dummy placeholders', () => {
 });
 
 // -------------------------------------------------------------
-// TEST SUITE 4: WEB PURGE ENGINE & GROUP EXPANSION
+// TEST SUITE 4: SIDEBAR INTEGRATION & COMMAND UPDATE
 // -------------------------------------------------------------
-console.log('\n--- TEST SUITE 4: executeWebPurge() & Group Resolution ---');
+console.log('\n--- TEST SUITE 4: getSidebarData() & updatePurgeSettings() ---');
 
-// Mock OAuth2 Token Endpoint
-mockUrlFetchResponses['oauth2.googleapis.com/token'] = {
-  code: 200,
-  body: { access_token: 'mock-dwd-token-xyz' }
-};
+it('Returns accurate initial state via getSidebarData()', () => {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let controlSheet = ss.getSheetByName('Purge_Control_Center');
+  if (!controlSheet) controlSheet = ss.insertSheet('Purge_Control_Center');
+  sandbox.setupControlCenterSheet(controlSheet);
 
-it('Throws informative error when Google Group cannot be expanded in Web Portal', () => {
-  resetTargetSheet();
-  mockGroupsAppLookup = {}; // GroupsApp will return null
-
-  // Ensure SA key is set so it doesn't run in simulation mode
-  mockScriptProperties.set('SA_KEY', JSON.stringify({
-    client_email: 'sa@project.iam.gserviceaccount.com',
-    private_key: '-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----'
-  }));
-
-  assert.throws(() => {
-    sandbox.executeWebPurge({
-      query: 'from:bad@evil.com',
-      scope: 'Google Group Members',
-      targetIdentifier: 'branch.tanahgrogot@andhika.com',
-      action: 'DRY_RUN'
-    });
-  }, (err) => {
-    return err.message.includes("Target 'branch.tanahgrogot@andhika.com' adalah Google Group") &&
-           err.message.includes('gam group "branch.tanahgrogot@andhika.com"');
-  });
+  const data = sandbox.getSidebarData();
+  assert.strictEqual(typeof data, 'object');
+  assert.strictEqual(typeof data.isValid, 'boolean');
+  assert.strictEqual(typeof data.command, 'string');
 });
 
-it('Automatically expands Google Group members via GroupsApp when accessible', () => {
-  resetTargetSheet();
-  mockGroupsAppLookup['branch.tanahgrogot@andhika.com'] = [
-    'agus.septian@andhika.com',
-    'eka.heryanto@andhika.com'
-  ];
+it('Updates settings and auto-generates GAM command via updatePurgeSettings()', () => {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let controlSheet = ss.getSheetByName('Purge_Control_Center');
+  if (!controlSheet) controlSheet = ss.insertSheet('Purge_Control_Center');
+  sandbox.setupControlCenterSheet(controlSheet);
 
-  mockUrlFetchResponses['messages?q='] = {
-    code: 200,
-    body: {
-      messages: [
-        { id: 'msg-001', threadId: 'th-001' }
-      ]
-    }
-  };
-
-  mockUrlFetchResponses['messages/msg-001'] = {
-    code: 200,
-    body: {
-      id: 'msg-001',
-      payload: {
-        headers: [
-          { name: 'Subject', value: 'Threat Test' },
-          { name: 'Date', value: 'Fri, 9 Oct 2026 10:00:00 +0700' }
-        ]
-      }
-    }
-  };
-
-  const report = sandbox.executeWebPurge({
-    query: 'from:bad@evil.com',
+  const updated = sandbox.updatePurgeSettings({
+    query: 'from:threat@attacker.com subject:"Phishing Alert"',
+    action: 'TRASH (Soft Purge - 30-Day Recovery)',
     scope: 'Google Group Members',
-    targetIdentifier: 'branch.tanahgrogot@andhika.com',
-    action: 'DRY_RUN'
+    targetIdentifier: 'branch.tanahgrogot@andhika.com'
   });
 
-  assert.strictEqual(report.scannedCount, 2); // 2 members scanned
-  assert.strictEqual(report.matchedCount, 2); // 1 match in each mailbox
-  assert.strictEqual(report.results.length, 2);
-  assert.strictEqual(report.results[0].email, 'agus.septian@andhika.com');
-  assert.strictEqual(report.results[1].email, 'eka.heryanto@andhika.com');
-});
-
-it('Gracefully sanitizes targets containing GROUP: prefix in executeWebPurge', () => {
-  resetTargetSheet();
-  mockGroupsAppLookup['branch.tanahgrogot@andhika.com'] = [
-    'agus.septian@andhika.com'
-  ];
-
-  const report = sandbox.executeWebPurge({
-    query: 'from:bad@evil.com',
-    scope: 'targeted',
-    targets: ['GROUP: branch.tanahgrogot@andhika.com'],
-    action: 'DRY_RUN'
-  });
-
-  assert.strictEqual(report.scannedCount, 1);
-  assert.strictEqual(report.results[0].email, 'agus.septian@andhika.com');
-});
-
-it('getPortalConfig excludes GROUP: and OU: prefixes from targetList', () => {
-  const targetSheet = resetTargetSheet();
-  targetSheet.getRange(2, 1).setValue('GROUP: branch.tanahgrogot@andhika.com');
-  targetSheet.getRange(3, 1).setValue('user.real@andhika.com');
-
-  const cfg = sandbox.getPortalConfig();
-  assert.strictEqual(cfg.targetList.length, 1);
-  assert.strictEqual(cfg.targetList[0], 'user.real@andhika.com');
-});
-
-it('Prevents unbounded domain-wide execution without target list in Web Portal', () => {
-  assert.throws(() => {
-    sandbox.executeWebPurge({
-      query: 'from:bad@evil.com',
-      scope: 'All Users (Domain-Wide)',
-      targets: [],
-      action: 'DRY_RUN'
-    });
-  }, (err) => {
-    return err.message.includes('Direct Domain-Wide Gmail API execution requires a target mailbox list');
-  });
+  assert.strictEqual(updated.isValid, true);
+  assert.ok(updated.command.includes('gam group "branch.tanahgrogot@andhika.com" trash messages'));
+  assert.ok(updated.command.includes('doit'));
 });
 
 // -------------------------------------------------------------
-// TEST SUITE 5: HTML UI INTEGRITY & BINDINGS
+// TEST SUITE 5: HTML UI INTEGRITY & BINDINGS (SIDEBAR)
 // -------------------------------------------------------------
 console.log('\n--- TEST SUITE 5: HTML DOM & Event Binding Verification ---');
 
-const dashboardHtml = fs.readFileSync(path.join(__dirname, '../gam-sheet-ui/Dashboard.html'), 'utf8');
 const sidebarHtml = fs.readFileSync(path.join(__dirname, '../gam-sheet-ui/Sidebar.html'), 'utf8');
 
 function verifyHtmlBindings(html, name) {
-  // Check that all document.getElementById calls match an id in the HTML
   const idRegex = /document\.getElementById\(['"]([a-zA-Z0-9_-]+)['"]\)/g;
   const ids = Array.from(html.matchAll(idRegex)).map(m => m[1]);
-
   const existingIds = new Set(Array.from(html.matchAll(/\bid=['"]([a-zA-Z0-9_-]+)['"]/g)).map(m => m[1]));
 
   const missing = [];
@@ -539,18 +539,8 @@ it('Verifies all document.getElementById bindings in Sidebar.html', () => {
   verifyHtmlBindings(sidebarHtml, 'Sidebar.html');
 });
 
-it('Verifies all document.getElementById bindings in Dashboard.html', () => {
-  verifyHtmlBindings(dashboardHtml, 'Dashboard.html');
-});
-
-it('Verifies auto-wrapping of Message ID in angle brackets in Dashboard.html', () => {
-  assert.ok(dashboardHtml.includes('if (!cleanId.startsWith(\'<\') && !cleanId.endsWith(\'>\'))'));
-  assert.ok(dashboardHtml.includes('cleanId = `<${cleanId}>`;'));
-});
-
-it('Verifies logBox and client script execution safety in Dashboard.html', () => {
-  assert.ok(dashboardHtml.includes('const logBox = document.getElementById(\'live-logs\');'));
-  const scripts = dashboardHtml.match(/<script[\s\S]*?<\/script>/gi) || [];
+it('Verifies client script syntax and safety in Sidebar.html', () => {
+  const scripts = sidebarHtml.match(/<script[\s\S]*?<\/script>/gi) || [];
   scripts.forEach(s => {
     const code = s.replace(/<\/?script[^>]*>/gi, '');
     new Function('google', code);
@@ -610,7 +600,7 @@ it('Rebuilds and validates customer distribution bundle', () => {
   assert.ok(stats.size > 100000, 'Customer bundle zip should be > 100KB');
 
   // Verify that Code.gs in gam-sheet-ui and bundle are identical
-  const bundleCode = fs.readFileSync(path.join(__dirname, '../dist/Devoteam-GWS-Email-Purge-Customer-Bundle/03-Apps-Script-Web-Solution/Code.gs'), 'utf8');
+  const bundleCode = fs.readFileSync(path.join(__dirname, '../dist/Devoteam-GWS-Email-Purge-Customer-Bundle/03-Apps-Script-Command-Center/Code.gs'), 'utf8');
   assert.strictEqual(bundleCode, fs.readFileSync(codePath, 'utf8'), 'Bundle Code.gs must match working Code.gs');
 });
 
