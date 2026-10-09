@@ -548,6 +548,15 @@ it('Verifies auto-wrapping of Message ID in angle brackets in Dashboard.html', (
   assert.ok(dashboardHtml.includes('cleanId = `<${cleanId}>`;'));
 });
 
+it('Verifies logBox and client script execution safety in Dashboard.html', () => {
+  assert.ok(dashboardHtml.includes('const logBox = document.getElementById(\'live-logs\');'));
+  const scripts = dashboardHtml.match(/<script[\s\S]*?<\/script>/gi) || [];
+  scripts.forEach(s => {
+    const code = s.replace(/<\/?script[^>]*>/gi, '');
+    new Function('google', code);
+  });
+});
+
 // -------------------------------------------------------------
 // TEST SUITE 6: BASH SCRIPT RIGOROUS TESTS
 // -------------------------------------------------------------

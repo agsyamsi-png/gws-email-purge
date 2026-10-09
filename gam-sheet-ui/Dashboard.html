@@ -865,13 +865,16 @@
       document.getElementById('report-section').style.display = 'none';
       document.getElementById('progress-section').style.display = 'block';
 
+      const logBox = document.getElementById('live-logs');
       const targetCountDisplay = (currentScope === 'group') ? 'Google Group' :
         (currentScope === 'ou') ? 'Org Unit' :
         (targets.length > 0 ? targets.length : (currentScope === 'single' ? '1' : 'Domain-Wide'));
 
-      logBox.innerHTML = `[${new Date().toLocaleTimeString()}] Starting containment task ${incidentId}...<br>` +
-        `[${new Date().toLocaleTimeString()}] Query: ${query}<br>` +
-        `[${new Date().toLocaleTimeString()}] Mode: ${currentAction} | Target Scope: ${targetCountDisplay} (${targetIdentifier || 'Multiple'})<br>`;
+      if (logBox) {
+        logBox.innerHTML = `[${new Date().toLocaleTimeString()}] Starting containment task ${incidentId}...<br>` +
+          `[${new Date().toLocaleTimeString()}] Query: ${query}<br>` +
+          `[${new Date().toLocaleTimeString()}] Mode: ${currentAction} | Target Scope: ${targetCountDisplay} (${targetIdentifier || 'Multiple'})<br>`;
+      }
 
       // Animate progress bar
       let p = 10;
@@ -904,7 +907,10 @@
         .withFailureHandler(function(err) {
           clearInterval(interval);
           bar.style.width = '100%';
-          logBox.innerHTML += `<br><span style="color:#EF4444;">[ERROR] ${err.message || err}</span>`;
+          const logBox = document.getElementById('live-logs');
+          if (logBox) {
+            logBox.innerHTML += `<br><span style="color:#EF4444;">[ERROR] ${err.message || err}</span>`;
+          }
           document.getElementById('progress-badge').textContent = 'FAILED';
           document.getElementById('progress-badge').className = 'badge badge-danger';
         })
