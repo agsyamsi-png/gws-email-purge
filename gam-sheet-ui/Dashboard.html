@@ -167,7 +167,7 @@
     /* Scope & Action Selector Pills */
     .selector-cards {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       gap: 12px;
       margin-bottom: 14px;
     }
@@ -431,7 +431,10 @@
         <div class="grid-3">
           <div class="form-group">
             <label>Message-ID (rfc822msgid:)</label>
-            <input type="text" id="inp-msgid" placeholder="e.g. <unique-id@domain.com>" oninput="updateQueryPreview()">
+            <input type="text" id="inp-msgid" placeholder="e.g. <CA+unique-id@mail.gmail.com>" oninput="updateQueryPreview()">
+            <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
+              💡 From Email Log Search <strong>Message ID</strong>, not the sender.
+            </div>
           </div>
           <div class="form-group">
             <label>Sent After Date</label>
@@ -464,18 +467,28 @@
         <div class="selector-cards">
           <div class="sel-card active" id="card-scope-targeted" onclick="selectScope('targeted')">
             <div class="sel-card-icon">🎯</div>
-            <div class="sel-card-title">Targeted Mailbox List</div>
-            <div class="sel-card-desc">Search specific recipients (Recommended)</div>
+            <div class="sel-card-title">Targeted List</div>
+            <div class="sel-card-desc">Specific recipients list</div>
           </div>
-          <div class="sel-card" id="card-scope-domain" onclick="selectScope('domain')">
-            <div class="sel-card-icon">🌐</div>
-            <div class="sel-card-title">Domain-Wide</div>
-            <div class="sel-card-desc">Scan all accounts in the Workspace</div>
+          <div class="sel-card" id="card-scope-group" onclick="selectScope('group')">
+            <div class="sel-card-icon">👥</div>
+            <div class="sel-card-title">Google Group</div>
+            <div class="sel-card-desc">All group members</div>
           </div>
           <div class="sel-card" id="card-scope-single" onclick="selectScope('single')">
             <div class="sel-card-icon">👤</div>
             <div class="sel-card-title">Single Mailbox</div>
-            <div class="sel-card-desc">Remediate one specific user</div>
+            <div class="sel-card-desc">Remediate one user</div>
+          </div>
+          <div class="sel-card" id="card-scope-ou" onclick="selectScope('ou')">
+            <div class="sel-card-icon">🏢</div>
+            <div class="sel-card-title">Org Unit (OU)</div>
+            <div class="sel-card-desc">Target an entire OU</div>
+          </div>
+          <div class="sel-card" id="card-scope-domain" onclick="selectScope('domain')">
+            <div class="sel-card-icon">🌐</div>
+            <div class="sel-card-title">Domain-Wide</div>
+            <div class="sel-card-desc">Scan all accounts</div>
           </div>
         </div>
 
@@ -484,6 +497,22 @@
           <textarea id="inp-target-emails" rows="3" placeholder="user1@company.com, user2@company.com"></textarea>
           <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
             💡 Tip: If using the linked Google Sheet, emails from the <code>Target_Mailboxes</code> tab are automatically loaded.
+          </div>
+        </div>
+
+        <div id="group-box" class="form-group" style="display: none;">
+          <label>Google Group Email Address</label>
+          <input type="text" id="inp-group-email" placeholder="e.g. branch.tanahgrogot@andhika.com">
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
+            💡 Note: Web Engine expands group members via Groups Directory. For restricted groups or high concurrency, use the GAM CLI command (<code>gam group &quot;...&quot; ...</code>).
+          </div>
+        </div>
+
+        <div id="ou-box" class="form-group" style="display: none;">
+          <label>Organizational Unit Path</label>
+          <input type="text" id="inp-ou-path" placeholder="/Sales/BranchA">
+          <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
+            💡 Note: OU targeting requires GAM CLI in terminal (<code>gam ou &quot;/...&quot; ...</code>).
           </div>
         </div>
 
@@ -673,7 +702,17 @@
       }
       if (cfg.existingScope) {
         const sc = cfg.existingScope.toLowerCase();
-        if (sc.includes('single')) {
+        if (sc.includes('group')) {
+          selectScope('group');
+          if (cfg.existingTargetIdentifier) {
+            document.getElementById('inp-group-email').value = cfg.existingTargetIdentifier.replace(/^GROUP:\s*/i, '');
+          }
+        } else if (sc.includes('ou') || sc.includes('organizational unit')) {
+          selectScope('ou');
+          if (cfg.existingTargetIdentifier) {
+            document.getElementById('inp-ou-path').value = cfg.existingTargetIdentifier.replace(/^OU:\s*/i, '');
+          }
+        } else if (sc.includes('single')) {
           selectScope('single');
           if (cfg.existingTargetIdentifier) {
             document.getElementById('inp-single-user').value = cfg.existingTargetIdentifier;
@@ -698,11 +737,14 @@
 
     function selectScope(scope) {
       currentScope = scope;
-      document.querySelectorAll('#card-scope-targeted, #card-scope-domain, #card-scope-single')
+      document.querySelectorAll('#card-scope-targeted, #card-scope-group, #card-scope-single, #card-scope-ou, #card-scope-domain')
         .forEach(el => el.classList.remove('active'));
-      document.getElementById('card-scope-' + scope).classList.add('active');
+      const activeCard = document.getElementById('card-scope-' + scope);
+      if (activeCard) activeCard.classList.add('active');
 
       document.getElementById('target-list-box').style.display = (scope === 'targeted') ? 'block' : 'none';
+      document.getElementById('group-box').style.display = (scope === 'group') ? 'block' : 'none';
+      document.getElementById('ou-box').style.display = (scope === 'ou') ? 'block' : 'none';
       document.getElementById('single-user-box').style.display = (scope === 'single') ? 'block' : 'none';
     }
 
@@ -735,7 +777,13 @@
       const filename = document.getElementById('inp-filename').value.trim();
 
       const tokens = [];
-      if (msgid) tokens.push(`rfc822msgid:${msgid}`);
+      if (msgid) {
+        let cleanId = msgid;
+        if (!cleanId.startsWith('<') && !cleanId.endsWith('>')) {
+          cleanId = `<${cleanId}>`;
+        }
+        tokens.push(`rfc822msgid:${cleanId}`);
+      }
       if (sender) tokens.push(`from:${sender}`);
       if (subject) tokens.push(`subject:"${subject}"`);
       if (after) tokens.push(`after:${after.replace(/-/g, '/')}`);
@@ -783,11 +831,25 @@
       let targetIdentifier = '';
       if (currentScope === 'targeted') {
         const raw = document.getElementById('inp-target-emails').value;
-        targets = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && !s.includes('@yourdomain.com') && !s.includes('@example.com') && !s.startsWith('victim.'));
+        targets = raw.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0 && !s.toUpperCase().startsWith('GROUP:') && !s.toUpperCase().startsWith('OU:') && !s.includes('@yourdomain.com') && !s.includes('@example.com') && !s.startsWith('victim.'));
         if (targets.length === 0) {
           alert('Please enter at least one valid target user email in the targeted list.');
           return;
         }
+      } else if (currentScope === 'group') {
+        const grp = document.getElementById('inp-group-email').value.trim().replace(/^GROUP:\s*/i, '');
+        if (!grp || !grp.includes('@')) {
+          alert('Please enter a valid Google Group email address.');
+          return;
+        }
+        targetIdentifier = grp;
+      } else if (currentScope === 'ou') {
+        const ou = document.getElementById('inp-ou-path').value.trim().replace(/^OU:\s*/i, '');
+        if (!ou) {
+          alert('Please enter an Organizational Unit path (e.g. /Sales/BranchA).');
+          return;
+        }
+        targetIdentifier = ou;
       } else if (currentScope === 'single') {
         const single = document.getElementById('inp-single-user').value.trim();
         if (!single || !single.includes('@')) {

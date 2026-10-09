@@ -116,7 +116,27 @@ done
 
 print_banner
 
-# Step 0: Pre-Flight Check - GAM Installation & Domain Check
+# Step 1: Query Safety Validation
+if [[ -z "${QUERY}" ]]; then
+    log_error "Search query (--query) is required."
+    usage 1
+fi
+
+# Check for catastrophic empty/broad patterns
+TRIMMED_QUERY=$(echo "${QUERY}" | tr '[:upper:]' '[:lower:]' | xargs)
+if [[ "${TRIMMED_QUERY}" == "*" || "${TRIMMED_QUERY}" == "\"\"" || "${TRIMMED_QUERY}" == "is:unread" || "${TRIMMED_QUERY}" == "is:read" || "${TRIMMED_QUERY}" == "label:inbox" || "${TRIMMED_QUERY}" == "has:attachment" ]]; then
+    log_error "Catastrophic query pattern detected: '${QUERY}'. Execution terminated for domain safety."
+    exit 2
+fi
+
+# Ensure at least one primary threat identifier is present
+if ! echo "${TRIMMED_QUERY}" | grep -E -q "(from:|to:|subject:|rfc822msgid:|message-id:|filename:)"; then
+    log_error "Query lacks a primary threat identifier (from:, to:, subject:, rfc822msgid:, or filename:)."
+    log_error "Modifiers like after: or has:attachment alone are too broad for safety. Aborting."
+    exit 2
+fi
+
+# Step 2: Pre-Flight Check - GAM Installation & Domain Check
 log_info "Running pre-flight checks..."
 if ! command -v gam &> /dev/null; then
     log_error "GAM executable not found in PATH."
@@ -127,23 +147,11 @@ fi
 GAM_VER=$(gam version | head -n 1)
 log_info "Detected GAM Version: ${GAM_VER}"
 
-# Step 1: Query Safety Validation
-if [[ -z "${QUERY}" ]]; then
-    log_error "Search query (--query) is required."
-    usage 1
-fi
-
-# Check for catastrophic empty/broad patterns
-TRIMMED_QUERY=$(echo "${QUERY}" | tr '[:upper:]' '[:lower:]' | xargs)
-if [[ "${TRIMMED_QUERY}" == "*" || "${TRIMMED_QUERY}" == "\"\"" || "${TRIMMED_QUERY}" == "is:unread" || "${TRIMMED_QUERY}" == "is:read" || "${TRIMMED_QUERY}" == "label:inbox" ]]; then
-    log_error "Catastrophic query pattern detected: '${QUERY}'. Execution terminated for domain safety."
-    exit 2
-fi
-
+MODE_UPPER=$(echo "${MODE}" | tr '[:lower:]' '[:upper:]')
 log_info "Incident Reference : ${INCIDENT_ID}"
 log_info "Gmail Search Query : \"${QUERY}\""
 log_info "Target Scope       : ${SCOPE}"
-log_info "Purge Mode         : ${MODE^^}"
+log_info "Purge Mode         : ${MODE_UPPER}"
 
 # Step 2: Build Base Target Command
 GAM_TARGET_PREFIX=""
@@ -232,14 +240,14 @@ fi
 
 # Step 4: Interactive Confirmation Guardrail
 echo -e "${RED}${BOLD}⚠️  WARNING: DESTRUCTIVE ACTION REQUESTED${NC}"
-echo -e "You are about to execute: ${BOLD}${MODE^^}${NC} on ${BOLD}${MATCH_COUNT}${NC} matching message(s)."
+echo -e "You are about to execute: ${BOLD}${MODE_UPPER}${NC} on ${BOLD}${MATCH_COUNT}${NC} matching message(s)."
 if [[ "${MODE}" == "delete" ]]; then
     echo -e "${RED}${BOLD}PERMANENT DELETE expunges emails directly from mailboxes!${NC}"
 else
     echo -e "${YELLOW}TRASH moves emails to users' Trash folders (30-day recovery window).${NC}"
 fi
 echo ""
-read -r -p "Type 'CONFIRM' to proceed with ${MODE^^} operation: " CONFIRMATION
+read -r -p "Type 'CONFIRM' to proceed with ${MODE_UPPER} operation: " CONFIRMATION
 
 if [[ "${CONFIRMATION}" != "CONFIRM" ]]; then
     log_warn "Purge operation aborted by operator. Confirmation string mismatch."
@@ -247,7 +255,7 @@ if [[ "${CONFIRMATION}" != "CONFIRM" ]]; then
 fi
 
 # Step 5: Execute Purge Action
-log_info "Executing Phase 2: Purge Execution (${MODE^^})..."
+log_info "Executing Phase 2: Purge Execution (${MODE_UPPER})..."
 
 ACTION_CMD=""
 if [[ "${MODE}" == "trash" ]]; then

@@ -239,6 +239,10 @@ function syncTargetMailboxes(scope, targetIdentifier, targetsList) {
     if (email && email.includes('@')) {
       rowsToInsert.push([email, 'Single Target Mailbox', 'READY_FOR_PURGE', '', 'Target mailbox active']);
     }
+  } else if (cleanScope.includes('group')) {
+    rowsToInsert.push(['GROUP: ' + (targetIdentifier || ''), 'Google Group', 'READY_FOR_PURGE', '', 'All members of group']);
+  } else if (cleanScope.includes('organizational unit') || cleanScope === 'ou' || /\bou\b/.test(cleanScope)) {
+    rowsToInsert.push(['OU: ' + (targetIdentifier || '/'), 'Organizational Unit', 'READY_FOR_PURGE', '', 'All users in OU']);
   } else if (cleanScope.includes('targeted') || cleanScope.includes('specific')) {
     if (targetsList && targetsList.length > 0) {
       for (let i = 0; i < targetsList.length; i++) {
@@ -250,10 +254,6 @@ function syncTargetMailboxes(scope, targetIdentifier, targetsList) {
     }
   } else if (cleanScope.includes('domain')) {
     rowsToInsert.push(['* ALL USERS (Domain-Wide)', 'Whole Tenant', 'READY_FOR_PURGE', '', 'All active Google Workspace inboxes']);
-  } else if (cleanScope.includes('organizational unit') || cleanScope.includes('ou')) {
-    rowsToInsert.push(['OU: ' + (targetIdentifier || '/'), 'Organizational Unit', 'READY_FOR_PURGE', '', 'All users in OU']);
-  } else if (cleanScope.includes('group')) {
-    rowsToInsert.push(['GROUP: ' + (targetIdentifier || ''), 'Google Group', 'READY_FOR_PURGE', '', 'All members of group']);
   }
 
   // Clear existing rows (preserve header row 1)
@@ -322,13 +322,17 @@ function validateQuerySafety(query) {
     }
   }
 
-  const safeAnchors = ['from:', 'to:', 'subject:', 'rfc822msgid:', 'message-id:', 'after:', 'before:', 'has:attachment', 'filename:'];
-  const hasAnchor = safeAnchors.some(anchor => clean.includes(anchor));
-  if (!hasAnchor) {
+  const primaryAnchors = ['from:', 'to:', 'subject:', 'rfc822msgid:', 'message-id:', 'filename:'];
+  const hasPrimaryAnchor = primaryAnchors.some(anchor => clean.includes(anchor));
+  if (!hasPrimaryAnchor) {
     return {
       valid: false,
-      error: 'Query lacks standard anchors (e.g. from:, subject:, rfc822msgid:, after:). Please add specific filters to prevent false positives.'
+      error: 'Query lacks a primary threat identifier (from:, to:, subject:, rfc822msgid:, or filename:). Modifiers like after: or has:attachment alone are too broad to prevent accidental mass deletion.'
     };
+  }
+
+  if (/subject:\s*["']\s*["']/.test(clean) || /from:\s*["']\s*["']/.test(clean) || /rfc822msgid:\s*["']\s*["']/.test(clean)) {
+    return { valid: false, error: 'Query contains empty threat identifier value (e.g. subject:"" or from:""). Please provide specific threat keywords.' };
   }
 
   return { valid: true };
@@ -382,9 +386,9 @@ function getPortalConfig() {
       if (targetSheet) {
         const rows = targetSheet.getDataRange().getValues();
         for (let i = 1; i < rows.length; i++) {
-          const email = String(rows[i][0]).trim();
-          if (email && email.includes('@') && !email.includes('@yourdomain.com') && !email.includes('@example.com') && !email.startsWith('victim.')) {
-            targetList.push(email);
+          const raw = String(rows[i][0]).trim();
+          if (raw && raw.includes('@') && !raw.startsWith('GROUP:') && !raw.startsWith('OU:') && !raw.startsWith('*') && !raw.includes('@yourdomain.com') && !raw.includes('@example.com') && !raw.startsWith('victim.')) {
+            targetList.push(raw);
           }
         }
       }
@@ -442,34 +446,52 @@ function promptServiceAccountSetup() {
  * Mints an impersonated OAuth2 access token via Domain-Wide Delegation (DWD).
  */
 function getDwdAccessToken(serviceAccountEmail, privateKey, userToImpersonate) {
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const now = Math.floor(Date.now() / 1000);
-  const claimSet = {
-    iss: serviceAccountEmail,
-    sub: userToImpersonate,
-    scope: 'https://mail.google.com/',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now
-  };
+  const scopesToTry = [
+    'https://mail.google.com/',
+    'https://www.googleapis.com/auth/gmail.modify'
+  ];
 
-  const b64 = (obj) => Utilities.base64EncodeWebSafe(JSON.stringify(obj)).replace(/=+$/, '');
-  const unsignedToken = b64(header) + '.' + b64(claimSet);
-  const signatureBytes = Utilities.computeRsaSha256Signature(unsignedToken, privateKey);
-  const signature = Utilities.base64EncodeWebSafe(signatureBytes).replace(/=+$/, '');
-  const jwt = unsignedToken + '.' + signature;
+  let lastError = '';
 
-  const response = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
-    method: 'post',
-    contentType: 'application/x-www-form-urlencoded',
-    payload: 'grant_type=' + encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer') +
-             '&assertion=' + encodeURIComponent(jwt),
-    muteHttpExceptions: true
-  });
+  for (let s = 0; s < scopesToTry.length; s++) {
+    const activeScope = scopesToTry[s];
+    const header = { alg: 'RS256', typ: 'JWT' };
+    const now = Math.floor(Date.now() / 1000);
+    const claimSet = {
+      iss: serviceAccountEmail,
+      sub: userToImpersonate,
+      scope: activeScope,
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now
+    };
 
-  const resJson = JSON.parse(response.getContentText());
-  if (resJson.access_token) return resJson.access_token;
-  throw new Error('DWD Token Exchange Failed: ' + (resJson.error_description || resJson.error));
+    const b64 = (obj) => Utilities.base64EncodeWebSafe(JSON.stringify(obj)).replace(/=+$/, '');
+    const unsignedToken = b64(header) + '.' + b64(claimSet);
+    const signatureBytes = Utilities.computeRsaSha256Signature(unsignedToken, privateKey);
+    const signature = Utilities.base64EncodeWebSafe(signatureBytes).replace(/=+$/, '');
+    const jwt = unsignedToken + '.' + signature;
+
+    try {
+      const response = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+        method: 'post',
+        contentType: 'application/x-www-form-urlencoded',
+        payload: 'grant_type=' + encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer') +
+                 '&assertion=' + encodeURIComponent(jwt),
+        muteHttpExceptions: true
+      });
+
+      const resJson = JSON.parse(response.getContentText());
+      if (resJson.access_token) {
+        return resJson.access_token;
+      }
+      lastError = resJson.error_description || resJson.error || response.getContentText();
+    } catch (e) {
+      lastError = e.message;
+    }
+  }
+
+  throw new Error('DWD Token Exchange Failed: ' + lastError + ' | Periksa: (1) Pastikan "Gmail API" sudah di-ENABLE di Google Cloud Console pada project Service Account, (2) Di admin.google.com > Security > API Controls > Domain-wide Delegation, masukkan Numeric Client ID (angka 21-digit dari JSON "client_id", BUKAN email SA), (3) Masukkan scope: https://mail.google.com/');
 }
 
 /**
@@ -489,7 +511,35 @@ function executeWebPurge(payload) {
     throw new Error('Query Validation Blocked: ' + safety.error);
   }
 
-  // 1. Strictly resolve targets based on scope
+  // 1. Sanitize incoming targets: expand GROUP: entries or strip non-user markers
+  const sanitizedTargets = [];
+  for (let i = 0; i < targets.length; i++) {
+    const rawTarget = String(targets[i]).trim();
+    if (rawTarget.toUpperCase().startsWith('GROUP:')) {
+      const gEmail = rawTarget.replace(/^GROUP:\s*/i, '').trim();
+      let groupMembers = [];
+      try {
+        const grp = GroupsApp.getGroupByEmail(gEmail);
+        if (grp) {
+          groupMembers = grp.getUsers().map(u => u.getEmail()).filter(e => e && e.includes('@'));
+        }
+      } catch (e) {}
+
+      if (groupMembers.length > 0) {
+        sanitizedTargets.push(...groupMembers);
+      } else {
+        throw new Error("Target '" + gEmail + "' adalah Google Group. Google DWD (Service Account) hanya dapat meng-impersonate mailbox akun user perorangan, bukan alamat Group. Silakan jalankan perintah GAM CLI di terminal ('gam group \"" + gEmail + "\" ...') untuk mengeksekusi ke seluruh anggota group, atau masukkan daftar email anggota di kolom Target Mailboxes.");
+      }
+    } else if (rawTarget.toUpperCase().startsWith('OU:')) {
+      const ouPath = rawTarget.replace(/^OU:\s*/i, '').trim();
+      throw new Error("Target '" + ouPath + "' adalah Organizational Unit (OU). DWD Gmail API hanya dapat meng-impersonate akun user perorangan. Silakan jalankan perintah GAM CLI di terminal ('gam ou \"" + ouPath + "\" ...'), atau masukkan daftar email user di kolom Target Mailboxes.");
+    } else if (rawTarget && rawTarget.includes('@') && !rawTarget.includes('@yourdomain.com') && !rawTarget.includes('@example.com') && !rawTarget.startsWith('victim.')) {
+      sanitizedTargets.push(rawTarget);
+    }
+  }
+  targets = sanitizedTargets;
+
+  // 2. Resolve targets based on scope
   if (scope.includes('single')) {
     const single = targetIdentifier || (targets.length > 0 ? targets[0] : '');
     targets = (single && single.includes('@')) ? [single] : [];
@@ -497,8 +547,34 @@ function executeWebPurge(payload) {
       throw new Error('Single Mailbox scope requires a valid target email address.');
     }
     targetIdentifier = targets[0];
+  } else if (scope.includes('group')) {
+    let grpEmail = (targetIdentifier || (targets.length > 0 ? targets[0] : '')).replace(/^GROUP:\s*/i, '').trim();
+    targets = [];
+    if (!grpEmail) {
+      throw new Error('Google Group scope requires a group email address in target identifier.');
+    }
+    targetIdentifier = grpEmail;
+    try {
+      const grp = GroupsApp.getGroupByEmail(grpEmail);
+      if (grp) {
+        const users = grp.getUsers();
+        for (let u = 0; u < users.length; u++) {
+          const mEmail = users[u].getEmail();
+          if (mEmail && mEmail.includes('@')) {
+            targets.push(mEmail);
+          }
+        }
+      }
+    } catch (e) {}
+
+    if (targets.length === 0) {
+      throw new Error("Target '" + grpEmail + "' adalah Google Group. Google DWD (Service Account) hanya dapat meng-impersonate mailbox akun user perorangan, bukan alamat Group. Silakan jalankan perintah GAM CLI di terminal ('gam group \"" + grpEmail + "\" ...') untuk mengeksekusi ke seluruh anggota group, atau masukkan daftar email anggota di kolom Target Mailboxes.");
+    }
+  } else if (scope.includes('organizational unit') || scope === 'ou' || /\bou\b/.test(scope)) {
+    const ouPath = (targetIdentifier || '/').replace(/^OU:\s*/i, '').trim();
+    throw new Error("Target '" + ouPath + "' adalah Organizational Unit (OU). DWD Gmail API hanya dapat meng-impersonate akun user perorangan. Silakan jalankan perintah GAM CLI di terminal ('gam ou \"" + ouPath + "\" ...'), atau masukkan daftar email user di kolom Target Mailboxes.");
   } else if (targets.length === 0 && !scope.includes('domain')) {
-    // Read from sheet, strictly filtering out dummy placeholders
+    // Read from sheet, strictly filtering out dummy placeholders and group/OU markers
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       if (ss) {
@@ -506,9 +582,9 @@ function executeWebPurge(payload) {
         if (targetSheet) {
           const data = targetSheet.getDataRange().getValues();
           for (let i = 1; i < data.length; i++) {
-            const email = String(data[i][0]).trim();
-            if (email && email.includes('@') && !email.includes('@yourdomain.com') && !email.includes('@example.com') && !email.startsWith('victim.')) {
-              targets.push(email);
+            const raw = String(data[i][0]).trim();
+            if (raw && raw.includes('@') && !raw.startsWith('GROUP:') && !raw.startsWith('OU:') && !raw.startsWith('*') && !raw.includes('@yourdomain.com') && !raw.includes('@example.com') && !raw.startsWith('victim.')) {
+              targets.push(raw);
             }
           }
         }
@@ -540,6 +616,17 @@ function executeWebPurge(payload) {
     // REAL DWD EXECUTION AGAINST GMAIL API
     for (let i = 0; i < targets.length; i++) {
       const targetEmail = targets[i];
+      if (!targetEmail || targetEmail.toUpperCase().startsWith('GROUP:') || targetEmail.toUpperCase().startsWith('OU:') || !targetEmail.includes('@')) {
+        results.push({
+          email: targetEmail,
+          subject: 'Skipped - Not A User Mailbox',
+          date: 'N/A',
+          messageId: 'N/A',
+          status: 'SKIPPED',
+          error: 'Cannot impersonate non-user mailbox: ' + targetEmail
+        });
+        continue;
+      }
       scannedCount++;
       try {
         const token = getDwdAccessToken(saCreds.client_email, saCreds.private_key, targetEmail);
@@ -735,16 +822,18 @@ function buildGamCommand(params) {
     doitFlag = ' doit';
   }
 
-  if (params.scope.includes('Target_Mailboxes')) {
+  const s = String(params.scope || '').toLowerCase();
+
+  if (s.includes('target_mailboxes') || s.includes('specific mailbox')) {
     return `gam csv gsheet "${params.spreadsheetId}" "${CONFIG.SHEET_NAMES.TARGETS}" gam user ~Email ${gamAction} query "${escapedQuery}"${doitFlag}`;
-  } else if (params.scope.includes('Domain-Wide') || params.scope.includes('domain')) {
-    return `gam all users ${gamAction} query "${escapedQuery}"${doitFlag}`;
-  } else if (params.scope.includes('Single Mailbox') || params.scope.includes('single')) {
-    return `gam user ${params.targetIdentifier || 'user@domain.com'} ${gamAction} query "${escapedQuery}"${doitFlag}`;
-  } else if (params.scope.includes('Organizational Unit') || params.scope.includes('OU') || params.scope.includes('ou')) {
-    return `gam ou "${params.targetIdentifier || '/'}" ${gamAction} query "${escapedQuery}"${doitFlag}`;
-  } else if (params.scope.includes('Group') || params.scope.includes('group')) {
+  } else if (s.includes('group')) {
     return `gam group "${params.targetIdentifier || 'group@domain.com'}" ${gamAction} query "${escapedQuery}"${doitFlag}`;
+  } else if (s.includes('organizational unit') || s === 'ou' || /\bou\b/.test(s)) {
+    return `gam ou "${params.targetIdentifier || '/'}" ${gamAction} query "${escapedQuery}"${doitFlag}`;
+  } else if (s.includes('single')) {
+    return `gam user "${params.targetIdentifier || 'user@domain.com'}" ${gamAction} query "${escapedQuery}"${doitFlag}`;
+  } else if (s.includes('domain')) {
+    return `gam all users ${gamAction} query "${escapedQuery}"${doitFlag}`;
   }
   return `gam all users ${gamAction} query "${escapedQuery}"${doitFlag}`;
 }

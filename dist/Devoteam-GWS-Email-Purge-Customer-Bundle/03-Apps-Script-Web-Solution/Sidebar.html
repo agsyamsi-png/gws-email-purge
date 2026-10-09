@@ -236,7 +236,7 @@
 
       <div class="field" id="targetIdField" style="display:none;">
         <label>Target Identifier (Email / OU / Group)</label>
-        <input type="text" id="inputTargetId" placeholder="user@domain.com or /Finance">
+        <input type="text" id="inputTargetId" placeholder="user@domain.com, /Finance, or group@domain.com">
       </div>
 
       <div class="field">
@@ -356,6 +356,14 @@
 
         if (scope.includes('Single Mailbox') && !targetId) {
           showAlert('Please specify a target email address in Target Identifier.', 'error');
+          return;
+        }
+        if (scope.includes('Google Group') && !targetId) {
+          showAlert('Please specify a group email (e.g. branch.name@domain.com) in Target Identifier.', 'error');
+          return;
+        }
+        if (scope.includes('Organizational Unit') && !targetId) {
+          showAlert('Please specify an OU path (e.g. /Finance) in Target Identifier.', 'error');
           return;
         }
 
